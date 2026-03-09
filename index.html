@@ -77,8 +77,8 @@ tr:hover td{background:rgba(247,147,26,.025)}
 .badge.s{background:rgba(0,214,143,.1);color:var(--green)}
 .badge.e{background:rgba(255,77,106,.1);color:var(--red)}
 .badge.w{background:rgba(255,214,10,.08);color:var(--yellow)}
-.pb-wrap{background:var(--s2);border-radius:6px;height:6px;overflow:hidden;margin:10px 0}
-.pb{height:100%;border-radius:6px;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .35s ease}
+.pb-wrap{background:var(--s2);border-radius:6px;height:8px;overflow:hidden;margin:10px 0}
+.pb{height:100%;border-radius:6px;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .2s ease}
 .toolbar{display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
 .sw{position:relative;flex:1;min-width:180px}
 .sw input{width:100%;padding:9px 12px 9px 36px;background:var(--s2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none;transition:border .2s}
@@ -141,10 +141,10 @@ tr:hover td{background:rgba(247,147,26,.025)}
     </div>
     <div class="info-box">
       ✅ Signed in! Set the <strong style="color:var(--text)">OneDrive File Path</strong> to your stock Excel file then click Fetch.<br>
-      <strong style="color:var(--text)">Example:</strong> /Documents/Stock.xlsx &nbsp;|&nbsp; /StockRegister.xlsx
+      Large files are read in chunks automatically — no size limit.
     </div>
     <div class="g2" style="margin-bottom:12px">
-      <div class="fg"><label>OneDrive File Path</label><input id="cfgPath" placeholder="/Documents/StockRegister.xlsx" style="border-color:var(--accent)"/></div>
+      <div class="fg"><label>OneDrive File Path</label><input id="cfgPath" placeholder="/August Stock Final.xlsx" style="border-color:var(--accent)"/></div>
       <div class="fg"><label>Sheet Name</label><input id="cfgSheet"/></div>
     </div>
     <div class="g3" style="margin-bottom:12px">
@@ -163,6 +163,7 @@ tr:hover td{background:rgba(247,147,26,.025)}
     <div id="fetchProg" class="hidden" style="margin-top:16px">
       <div id="fetchTxt" style="font-size:12px;font-family:var(--mono);color:var(--muted);margin-bottom:4px">Loading...</div>
       <div class="pb-wrap"><div class="pb" id="fetchPb" style="width:0%"></div></div>
+      <div id="fetchSub" style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:4px"></div>
     </div>
     <div id="fetchErr" class="hidden err-box" style="margin-top:14px"></div>
   </div>
@@ -219,153 +220,87 @@ tr:hover td{background:rgba(247,147,26,.025)}
 
 <script>
 /* ═══════════════════════════════════════════════════
-   PERMANENT CONFIG — zero external library dependency
-   Uses native OAuth2 PKCE redirect — no MSAL needed
+   PERMANENT CONFIG
    GitHub: https://opusamazon.github.io/stocksync/
 ═══════════════════════════════════════════════════ */
 const CLIENT_ID    = 'b4e59877-96a2-44a3-a8f8-d3cfaaceb7de';
 const REDIRECT_URI = 'https://opusamazon.github.io/stocksync/';
 const AUTHORITY    = 'https://login.microsoftonline.com/consumers/oauth2/v2.0';
 const SCOPES       = 'Files.ReadWrite User.Read';
+const CHUNK_SIZE   = 5000; // rows per API call — safe limit
 
 const DEFAULTS = {
-  odPath:'/StockRegister.xlsx', odSheet:'Sheet1', placeFilter:'Self Surat',
-  colSku:'Master SKU', colQty:'Quantity', colType:'Stock Type', colPlace:'Place',
-  kwIn:'Inward', kwOut:'Outward',
+  odPath:'/August Stock Final.xlsx',
+  odSheet:'Stock Entry',
+  placeFilter:'Self Surat',
+  colSku:'Master SKU',
+  colQty:'Quantity',
+  colType:'Stock Type',
+  colPlace:'Place',
+  kwIn:'Inward',
+  kwOut:'Outward',
 };
 
 let token=null, stockData=[], filteredData=[], currentPage=1, pageSize=50;
 
-/* ═══════════════════════════════════════════════════
-   PKCE helpers — pure browser crypto, no library
-═══════════════════════════════════════════════════ */
-function rnd(n){
-  const a=new Uint8Array(n); crypto.getRandomValues(a);
-  return btoa(String.fromCharCode(...a)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
-}
-async function sha256b64(s){
-  const h=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));
-  return btoa(String.fromCharCode(...new Uint8Array(h))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
-}
+/* ── PKCE helpers ── */
+function rnd(n){const a=new Uint8Array(n);crypto.getRandomValues(a);return btoa(String.fromCharCode(...a)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');}
+async function sha256b64(s){const h=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return btoa(String.fromCharCode(...new Uint8Array(h))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');}
 
-/* ═══════════════════════════════════════════════════
-   SIGN IN — redirect to Microsoft, come back with code
-═══════════════════════════════════════════════════ */
+/* ── Sign In ── */
 async function signIn(){
   const btn=document.getElementById('loginBtn');
-  btn.disabled=true; btn.textContent='Redirecting to Microsoft...';
-  const verifier=rnd(43);
-  const challenge=await sha256b64(verifier);
-  const state=rnd(16);
-  // Save to sessionStorage — survives the redirect
-  sessionStorage.setItem('pkce_v',verifier);
-  sessionStorage.setItem('pkce_s',state);
-  const p=new URLSearchParams({
-    client_id:CLIENT_ID, response_type:'code',
-    redirect_uri:REDIRECT_URI, response_mode:'query',
-    scope:SCOPES, state, code_challenge:challenge,
-    code_challenge_method:'S256',
-  });
-  // Full page redirect — no popup needed, no library needed
+  btn.disabled=true;btn.textContent='Redirecting to Microsoft...';
+  const verifier=rnd(43),challenge=await sha256b64(verifier),state=rnd(16);
+  sessionStorage.setItem('pkce_v',verifier);sessionStorage.setItem('pkce_s',state);
+  const p=new URLSearchParams({client_id:CLIENT_ID,response_type:'code',redirect_uri:REDIRECT_URI,response_mode:'query',scope:SCOPES,state,code_challenge:challenge,code_challenge_method:'S256'});
   window.location.href=`${AUTHORITY}/authorize?${p}`;
 }
 
-/* ═══════════════════════════════════════════════════
-   HANDLE RETURN — exchange code for token on page load
-═══════════════════════════════════════════════════ */
+/* ── Handle return from Microsoft ── */
 async function handleReturn(){
   const p=new URLSearchParams(window.location.search);
-  const code=p.get('code'), errParam=p.get('error');
-
-  // Show any stored auth errors from previous attempt
-  if(errParam){
-    const desc=p.get('error_description')||errParam;
-    showErr('loginErr','❌ Microsoft login error:\n'+desc);
-    window.history.replaceState({},'',window.location.pathname);
-    return;
-  }
-
-  // Not a redirect — check if we have a stored token
+  const code=p.get('code'),errParam=p.get('error');
+  if(errParam){showErr('loginErr','❌ Microsoft error:\n'+(p.get('error_description')||errParam));window.history.replaceState({},'',window.location.pathname);return;}
   if(!code){
-    const stored=localStorage.getItem('ss_token');
-    const exp=parseInt(localStorage.getItem('ss_exp')||'0');
-    if(stored && Date.now()<exp){
-      token=stored;
-      const name=localStorage.getItem('ss_name')||'Signed in';
-      onSignedIn(name);
-    }
+    const stored=localStorage.getItem('ss_token'),exp=parseInt(localStorage.getItem('ss_exp')||'0');
+    if(stored&&Date.now()<exp){token=stored;onSignedIn(localStorage.getItem('ss_name')||'Signed in');}
     return;
   }
-
-  // We have a code — exchange it for a token
-  const verifier=sessionStorage.getItem('pkce_v');
-  const state=sessionStorage.getItem('pkce_s');
-  if(p.get('state')!==state){
-    showErr('loginErr','❌ State mismatch. Please try again.');
-    window.history.replaceState({},'',window.location.pathname);
-    return;
-  }
-
-  // Clean URL immediately
+  const verifier=sessionStorage.getItem('pkce_v'),state=sessionStorage.getItem('pkce_s');
+  if(p.get('state')!==state){showErr('loginErr','❌ State mismatch. Please try again.');window.history.replaceState({},'',window.location.pathname);return;}
   window.history.replaceState({},'',window.location.pathname);
-  sessionStorage.removeItem('pkce_v'); sessionStorage.removeItem('pkce_s');
-
-  try {
-    const res=await fetch(`${AUTHORITY}/token`,{
-      method:'POST',
-      headers:{'Content-Type':'application/x-www-form-urlencoded'},
-      body:new URLSearchParams({
-        client_id:CLIENT_ID, grant_type:'authorization_code',
-        code, redirect_uri:REDIRECT_URI, code_verifier:verifier, scope:SCOPES,
-      })
-    });
+  sessionStorage.removeItem('pkce_v');sessionStorage.removeItem('pkce_s');
+  try{
+    const res=await fetch(`${AUTHORITY}/token`,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({client_id:CLIENT_ID,grant_type:'authorization_code',code,redirect_uri:REDIRECT_URI,code_verifier:verifier,scope:SCOPES})});
     const data=await res.json();
     if(!data.access_token) throw new Error(data.error_description||JSON.stringify(data));
-
-    // Store token with expiry (default 1 hour)
     const exp=Date.now()+(data.expires_in||3600)*1000;
-    localStorage.setItem('ss_token',data.access_token);
-    localStorage.setItem('ss_exp',exp.toString());
+    localStorage.setItem('ss_token',data.access_token);localStorage.setItem('ss_exp',exp.toString());
     token=data.access_token;
-
-    // Get user name
-    try{
-      const u=await(await fetch('https://graph.microsoft.com/v1.0/me',{headers:{Authorization:'Bearer '+token}})).json();
-      const name=u.displayName||u.userPrincipalName||'Signed in';
-      localStorage.setItem('ss_name',name);
-      onSignedIn(name);
-    }catch(_){onSignedIn('Signed in');}
-
-  } catch(e){
-    showErr('loginErr','❌ Token exchange failed:\n'+e.message+'\n\nPlease try signing in again.');
-  }
+    try{const u=await(await fetch('https://graph.microsoft.com/v1.0/me',{headers:{Authorization:'Bearer '+token}})).json();const name=u.displayName||u.userPrincipalName||'Signed in';localStorage.setItem('ss_name',name);onSignedIn(name);}
+    catch(_){onSignedIn('Signed in');}
+  }catch(e){showErr('loginErr','❌ Token error:\n'+e.message);}
 }
 
 function onSignedIn(name){
   document.getElementById('liveLabel').textContent=name;
   document.getElementById('liveDot').className='dot on';
   document.getElementById('signOutBtn').classList.remove('hidden');
-  populateCfg();
-  show('secConfig'); hide('secLogin');
+  populateCfg();show('secConfig');hide('secLogin');
 }
-
 function signOut(){
-  localStorage.removeItem('ss_token');
-  localStorage.removeItem('ss_exp');
-  localStorage.removeItem('ss_name');
-  token=null; stockData=[];
+  ['ss_token','ss_exp','ss_name'].forEach(k=>localStorage.removeItem(k));
+  token=null;stockData=[];
   document.getElementById('liveDot').className='dot';
   document.getElementById('liveLabel').textContent='Not signed in';
   document.getElementById('signOutBtn').classList.add('hidden');
-  show('secLogin'); hide('secConfig'); hide('secReport');
-  const btn=document.getElementById('loginBtn');
-  btn.disabled=false;
+  show('secLogin');hide('secConfig');hide('secReport');
+  const btn=document.getElementById('loginBtn');btn.disabled=false;
   btn.innerHTML=`<svg width="20" height="20" viewBox="0 0 21 21" fill="none"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>Sign in with Microsoft`;
 }
 
-/* ═══════════════════════════════════════════════════
-   CONFIG
-═══════════════════════════════════════════════════ */
+/* ── Config ── */
 function populateCfg(){
   document.getElementById('cfgPath').value   = DEFAULTS.odPath;
   document.getElementById('cfgSheet').value  = DEFAULTS.odSheet;
@@ -378,48 +313,96 @@ function populateCfg(){
   document.getElementById('cfgFilter').value = DEFAULTS.placeFilter;
 }
 function getCfg(){
-  return{
-    odPath:v('cfgPath')||DEFAULTS.odPath, odSheet:v('cfgSheet')||DEFAULTS.odSheet,
-    placeFilter:v('cfgFilter')||DEFAULTS.placeFilter, colSku:v('cfgSku')||DEFAULTS.colSku,
-    colQty:v('cfgQty')||DEFAULTS.colQty, colType:v('cfgType')||DEFAULTS.colType,
-    colPlace:v('cfgPlace')||DEFAULTS.colPlace, kwIn:v('cfgIn')||DEFAULTS.kwIn,
-    kwOut:v('cfgOut')||DEFAULTS.kwOut,
-  };
+  return{odPath:v('cfgPath')||DEFAULTS.odPath,odSheet:v('cfgSheet')||DEFAULTS.odSheet,placeFilter:v('cfgFilter')||DEFAULTS.placeFilter,colSku:v('cfgSku')||DEFAULTS.colSku,colQty:v('cfgQty')||DEFAULTS.colQty,colType:v('cfgType')||DEFAULTS.colType,colPlace:v('cfgPlace')||DEFAULTS.colPlace,kwIn:v('cfgIn')||DEFAULTS.kwIn,kwOut:v('cfgOut')||DEFAULTS.kwOut};
 }
 
 /* ═══════════════════════════════════════════════════
-   FETCH
+   FETCH — reads large files in chunks of CHUNK_SIZE rows
 ═══════════════════════════════════════════════════ */
 async function doFetch(){
   const cfg=getCfg();
-  const txt=document.getElementById('fetchTxt'),pb=document.getElementById('fetchPb');
+  const txt=document.getElementById('fetchTxt'),pb=document.getElementById('fetchPb'),sub=document.getElementById('fetchSub');
   document.getElementById('fetchBtn').disabled=true;
-  show('fetchProg'); hide('fetchErr'); txt.style.color='var(--muted)';
+  show('fetchProg');hide('fetchErr');txt.style.color='var(--muted)';
   try{
-    // Refresh token if expired
     if(!token||Date.now()>parseInt(localStorage.getItem('ss_exp')||'0')){
       showErr('fetchErr','Session expired. Please sign out and sign in again.');
-      document.getElementById('fetchBtn').disabled=false; return;
+      document.getElementById('fetchBtn').disabled=false;return;
     }
-    setProg(txt,pb,20,'📂 Locating file on OneDrive...');
+
+    setProg(txt,pb,5,'📂 Locating file on OneDrive...');sub.textContent='';
     const fileId=await getFileId(cfg.odPath);
-    setProg(txt,pb,50,`📄 Reading sheet "${cfg.odSheet}"...`);
-    const rows=await getRows(fileId,cfg.odSheet);
-    setProg(txt,pb,80,`🔄 Filtering "${cfg.placeFilter}"...`);
-    stockData=processStock(rows,cfg);
-    setProg(txt,pb,100,`✅ ${stockData.length} SKUs loaded.`);
+
+    // Step 1: get sheet dimensions
+    setProg(txt,pb,10,'📐 Checking sheet size...');
+    const dimUrl=`https://graph.microsoft.com/v1.0/me/drive/items/${fileId}/workbook/worksheets/${encodeURIComponent(cfg.odSheet)}/usedRange(valuesOnly=true)?$select=rowCount,columnCount`;
+    const dimRes=await fetch(dimUrl,{headers:{Authorization:'Bearer '+token}});
+    const dim=await dimRes.json();
+    if(dim.error) throw new Error(dim.error.message);
+    const totalRows=dim.rowCount, totalCols=dim.columnCount;
+    sub.textContent=`${totalRows.toLocaleString()} rows × ${totalCols} cols — reading in chunks`;
+
+    // Step 2: read header row
+    setProg(txt,pb,12,'📋 Reading header row...');
+    const headerData=await getRange(fileId,cfg.odSheet,1,1,totalCols);
+    const hdr=headerData[0].map(h=>String(h||'').trim());
+
+    // Find column indices from header
+    const fi=n=>hdr.findIndex(h=>h.toLowerCase()===n.toLowerCase());
+    const iS=fi(cfg.colSku),iQ=fi(cfg.colQty),iT=fi(cfg.colType),iP=fi(cfg.colPlace);
+    if(iS<0) throw new Error(`Column "${cfg.colSku}" not found.\nHeaders: ${hdr.join(', ')}`);
+    if(iQ<0) throw new Error(`Column "${cfg.colQty}" not found.`);
+    if(iT<0) throw new Error(`Column "${cfg.colType}" not found.`);
+    if(iP<0) throw new Error(`Column "${cfg.colPlace}" not found.`);
+
+    // Step 3: read data rows in chunks, process on the fly
+    const map={};
+    const dataRows=totalRows-1; // exclude header
+    const chunks=Math.ceil(dataRows/CHUNK_SIZE);
+
+    for(let c=0;c<chunks;c++){
+      const startRow=2+(c*CHUNK_SIZE); // 1-indexed, skip header
+      const rowsToRead=Math.min(CHUNK_SIZE,totalRows-startRow+1);
+      if(rowsToRead<=0) break;
+
+      const pct=12+Math.round((c/chunks)*83);
+      const rowsDone=(c*CHUNK_SIZE).toLocaleString();
+      const rowsTotal=dataRows.toLocaleString();
+      setProg(txt,pb,pct,`📄 Reading rows... ${rowsDone} / ${rowsTotal}`);
+      sub.textContent=`Chunk ${c+1} of ${chunks} — SKUs found so far: ${Object.keys(map).length}`;
+
+      const rows=await getRange(fileId,cfg.odSheet,startRow,rowsToRead,totalCols);
+      // Process this chunk immediately
+      for(const row of rows){
+        if(String(row[iP]||'').trim().toLowerCase()!==cfg.placeFilter.toLowerCase()) continue;
+        const sku=String(row[iS]||'').trim();
+        const qty=parseFloat(row[iQ])||0;
+        const typ=String(row[iT]||'').trim().toLowerCase();
+        if(!sku) continue;
+        if(!map[sku]) map[sku]={inward:0,outward:0};
+        if(typ===cfg.kwIn.toLowerCase()) map[sku].inward+=qty;
+        if(typ===cfg.kwOut.toLowerCase()) map[sku].outward+=qty;
+      }
+    }
+
+    stockData=Object.entries(map).map(([sku,d])=>({sku,inward:d.inward,outward:d.outward,net:Math.max(0,d.inward-d.outward)})).sort((a,b)=>b.net-a.net);
+
+    setProg(txt,pb,100,`✅ Done! ${stockData.length} SKUs loaded from "${cfg.placeFilter}".`);
+    sub.textContent=`Processed ${totalRows.toLocaleString()} rows in ${chunks} chunks`;
     set('lastFetch','Updated '+new Date().toLocaleTimeString('en-IN'));
-    renderStats(); currentPage=1; renderTable();
-    show('secReport'); hide('secConfig');
+    renderStats();currentPage=1;renderTable();
+    show('secReport');hide('secConfig');
   }catch(e){
-    txt.style.color='var(--red)'; txt.textContent='❌ '+e.message;
-    showErr('fetchErr',e.message+'\n\nCommon fixes:\n• File path must start with /  e.g. /Documents/Stock.xlsx\n• Sheet name is case-sensitive\n• Make sure file exists in your OneDrive\n• Sign out and sign back in if session expired');
+    txt.style.color='var(--red)';txt.textContent='❌ '+e.message;
+    showErr('fetchErr',e.message+'\n\nCommon fixes:\n• File path must start with /\n• Sheet name is case-sensitive\n• Sign out and sign back in if session expired');
   }
   document.getElementById('fetchBtn').disabled=false;
 }
+
 async function doRefetch(){show('secConfig');hide('secReport');show('fetchProg');hide('fetchErr');await doFetch();}
 function showCfg(){show('secConfig');hide('secReport');}
 
+/* ── Graph API helpers ── */
 async function graphGet(url){
   const r=await fetch(url,{headers:{Authorization:'Bearer '+token}});
   const d=await r.json();
@@ -432,38 +415,27 @@ async function getFileId(path){
   if(!d.id) throw new Error('File not found: "'+path+'"');
   return d.id;
 }
-async function getRows(fileId,sheet){
-  const d=await graphGet(`https://graph.microsoft.com/v1.0/me/drive/items/${fileId}/workbook/worksheets/${encodeURIComponent(sheet)}/usedRange`);
-  if(!d.values) throw new Error('Cannot read sheet: "'+sheet+'"');
-  return d.values;
-}
-function processStock(rows,cfg){
-  if(!rows||rows.length<2) throw new Error('Sheet has no data rows.');
-  const hdr=rows[0].map(h=>String(h||'').trim());
-  const fi=n=>hdr.findIndex(h=>h.toLowerCase()===n.toLowerCase());
-  const iS=fi(cfg.colSku),iQ=fi(cfg.colQty),iT=fi(cfg.colType),iP=fi(cfg.colPlace);
-  if(iS<0) throw new Error(`Column "${cfg.colSku}" not found.\nHeaders: ${hdr.join(', ')}`);
-  if(iQ<0) throw new Error(`Column "${cfg.colQty}" not found.`);
-  if(iT<0) throw new Error(`Column "${cfg.colType}" not found.`);
-  if(iP<0) throw new Error(`Column "${cfg.colPlace}" not found.`);
-  const map={};
-  for(let i=1;i<rows.length;i++){
-    const row=rows[i];
-    if(String(row[iP]||'').trim().toLowerCase()!==cfg.placeFilter.toLowerCase()) continue;
-    const sku=String(row[iS]||'').trim();
-    const qty=parseFloat(row[iQ])||0;
-    const typ=String(row[iT]||'').trim().toLowerCase();
-    if(!sku) continue;
-    if(!map[sku]) map[sku]={inward:0,outward:0};
-    if(typ===cfg.kwIn.toLowerCase()) map[sku].inward+=qty;
-    if(typ===cfg.kwOut.toLowerCase()) map[sku].outward+=qty;
-  }
-  return Object.entries(map).map(([sku,d])=>({sku,inward:d.inward,outward:d.outward,net:Math.max(0,d.inward-d.outward)})).sort((a,b)=>b.net-a.net);
+
+/* ── Read a specific range by row number ── */
+async function getRange(fileId,sheet,startRow,rowCount,colCount){
+  // Convert to Excel column letter (e.g. 22 -> V)
+  const colLetter=colNumToLetter(colCount);
+  const endRow=startRow+rowCount-1;
+  const range=`A${startRow}:${colLetter}${endRow}`;
+  const url=`https://graph.microsoft.com/v1.0/me/drive/items/${fileId}/workbook/worksheets/${encodeURIComponent(sheet)}/range(address='${range}')?$select=values`;
+  const r=await fetch(url,{headers:{Authorization:'Bearer '+token}});
+  const d=await r.json();
+  if(d.error) throw new Error(d.error.message||JSON.stringify(d.error));
+  return d.values||[];
 }
 
-/* ═══════════════════════════════════════════════════
-   RENDER
-═══════════════════════════════════════════════════ */
+function colNumToLetter(n){
+  let s='';
+  while(n>0){const m=(n-1)%26;s=String.fromCharCode(65+m)+s;n=Math.floor((n-m-1)/26);}
+  return s;
+}
+
+/* ── Render ── */
 function renderStats(){
   const inS=stockData.filter(x=>x.net>0).length,zero=stockData.filter(x=>x.net<=0).length;
   const tot=stockData.reduce((s,x)=>s+x.net,0);
@@ -511,7 +483,6 @@ function hide(id){document.getElementById(id).classList.add('hidden');}
 function setProg(t,p,pct,msg){t.textContent=msg;p.style.width=pct+'%';}
 function showErr(id,msg){const e=document.getElementById(id);e.classList.remove('hidden');e.textContent=msg;}
 
-// Run on page load
 handleReturn();
 </script>
 </body>
