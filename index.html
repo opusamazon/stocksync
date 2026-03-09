@@ -4,6 +4,8 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>StockReport — Self Surat</title>
+<!-- SheetJS for fast local Excel parsing — no API row limits -->
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 <style>
 :root{
@@ -78,7 +80,7 @@ tr:hover td{background:rgba(247,147,26,.025)}
 .badge.e{background:rgba(255,77,106,.1);color:var(--red)}
 .badge.w{background:rgba(255,214,10,.08);color:var(--yellow)}
 .pb-wrap{background:var(--s2);border-radius:6px;height:8px;overflow:hidden;margin:10px 0}
-.pb{height:100%;border-radius:6px;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .2s ease}
+.pb{height:100%;border-radius:6px;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .3s ease}
 .toolbar{display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
 .sw{position:relative;flex:1;min-width:180px}
 .sw input{width:100%;padding:9px 12px 9px 36px;background:var(--s2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none;transition:border .2s}
@@ -92,6 +94,7 @@ tr:hover td{background:rgba(247,147,26,.025)}
 .pg-info{padding:5px 10px;background:var(--s2);border:1px solid var(--border);border-radius:6px}
 .err-box{background:rgba(255,77,106,.07);border:1px solid rgba(255,77,106,.25);border-radius:10px;padding:14px 16px;font-size:12px;color:var(--red);font-family:var(--mono);line-height:1.8;white-space:pre-wrap}
 .info-box{border-radius:10px;padding:13px 16px;font-size:12px;line-height:1.75;margin-bottom:16px;background:rgba(0,214,143,.05);border:1px solid rgba(0,214,143,.2);color:var(--green)}
+.warn-box{border-radius:10px;padding:13px 16px;font-size:12px;line-height:1.75;margin-bottom:16px;background:rgba(255,214,10,.04);border:1px solid rgba(255,214,10,.2);color:var(--yellow)}
 .section{animation:fi .25s ease}
 @keyframes fi{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 .hidden{display:none!important}
@@ -137,11 +140,13 @@ tr:hover td{background:rgba(247,147,26,.025)}
 <div id="secConfig" class="section hidden">
   <div class="cfg-card">
     <div class="cfg-title">⚙️ File Settings
-      <span style="font-size:10px;color:var(--green);background:rgba(0,214,143,.1);padding:3px 9px;border-radius:20px;font-weight:400;font-family:var(--mono)">Update file path then fetch</span>
+      <span style="font-size:10px;color:var(--green);background:rgba(0,214,143,.1);padding:3px 9px;border-radius:20px;font-weight:400;font-family:var(--mono)">Downloads file directly — fast even for large files</span>
     </div>
     <div class="info-box">
-      ✅ Signed in! Set the <strong style="color:var(--text)">OneDrive File Path</strong> to your stock Excel file then click Fetch.<br>
-      Large files are read in chunks automatically — no size limit.
+      ✅ Signed in! File downloads directly from OneDrive and is parsed locally — <strong style="color:var(--text)">much faster</strong> than API row-by-row calls. Even 700k rows works fine.
+    </div>
+    <div class="warn-box">
+      ⚠️ Large file (~42MB) — download may take 15–30 seconds depending on your internet speed. Please wait after clicking Fetch.
     </div>
     <div class="g2" style="margin-bottom:12px">
       <div class="fg"><label>OneDrive File Path</label><input id="cfgPath" placeholder="/August Stock Final.xlsx" style="border-color:var(--accent)"/></div>
@@ -221,13 +226,13 @@ tr:hover td{background:rgba(247,147,26,.025)}
 <script>
 /* ═══════════════════════════════════════════════════
    PERMANENT CONFIG
-   GitHub: https://opusamazon.github.io/stocksync/
+   Strategy: download xlsx directly → parse with SheetJS
+   Zero API row limits, much faster than Graph Excel API
 ═══════════════════════════════════════════════════ */
 const CLIENT_ID    = 'b4e59877-96a2-44a3-a8f8-d3cfaaceb7de';
 const REDIRECT_URI = 'https://opusamazon.github.io/stocksync/';
 const AUTHORITY    = 'https://login.microsoftonline.com/consumers/oauth2/v2.0';
 const SCOPES       = 'Files.ReadWrite User.Read';
-const CHUNK_SIZE   = 5000; // rows per API call — safe limit
 
 const DEFAULTS = {
   odPath:'/August Stock Final.xlsx',
@@ -243,11 +248,11 @@ const DEFAULTS = {
 
 let token=null, stockData=[], filteredData=[], currentPage=1, pageSize=50;
 
-/* ── PKCE helpers ── */
+/* ── PKCE ── */
 function rnd(n){const a=new Uint8Array(n);crypto.getRandomValues(a);return btoa(String.fromCharCode(...a)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');}
 async function sha256b64(s){const h=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return btoa(String.fromCharCode(...new Uint8Array(h))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');}
 
-/* ── Sign In ── */
+/* ── Auth ── */
 async function signIn(){
   const btn=document.getElementById('loginBtn');
   btn.disabled=true;btn.textContent='Redirecting to Microsoft...';
@@ -257,7 +262,6 @@ async function signIn(){
   window.location.href=`${AUTHORITY}/authorize?${p}`;
 }
 
-/* ── Handle return from Microsoft ── */
 async function handleReturn(){
   const p=new URLSearchParams(window.location.search);
   const code=p.get('code'),errParam=p.get('error');
@@ -317,123 +321,117 @@ function getCfg(){
 }
 
 /* ═══════════════════════════════════════════════════
-   FETCH — reads large files in chunks of CHUNK_SIZE rows
+   FETCH — download file directly, parse with SheetJS
+   Strategy: GET /drive/items/{id}/content → ArrayBuffer
+   → XLSX.read() → sheet_to_json() → filter & aggregate
 ═══════════════════════════════════════════════════ */
 async function doFetch(){
   const cfg=getCfg();
   const txt=document.getElementById('fetchTxt'),pb=document.getElementById('fetchPb'),sub=document.getElementById('fetchSub');
   document.getElementById('fetchBtn').disabled=true;
   show('fetchProg');hide('fetchErr');txt.style.color='var(--muted)';
+
   try{
     if(!token||Date.now()>parseInt(localStorage.getItem('ss_exp')||'0')){
       showErr('fetchErr','Session expired. Please sign out and sign in again.');
       document.getElementById('fetchBtn').disabled=false;return;
     }
 
+    // Check SheetJS loaded
+    if(typeof XLSX==='undefined') throw new Error('SheetJS library not loaded. Please refresh the page.');
+
     setProg(txt,pb,5,'📂 Locating file on OneDrive...');sub.textContent='';
-    const fileId=await getFileId(cfg.odPath);
 
-    // Step 1: get sheet dimensions
-    setProg(txt,pb,10,'📐 Checking sheet size...');
-    const dimUrl=`https://graph.microsoft.com/v1.0/me/drive/items/${fileId}/workbook/worksheets/${encodeURIComponent(cfg.odSheet)}/usedRange(valuesOnly=true)?$select=rowCount,columnCount`;
-    const dimRes=await fetch(dimUrl,{headers:{Authorization:'Bearer '+token}});
-    const dim=await dimRes.json();
-    if(dim.error) throw new Error(dim.error.message);
-    const totalRows=dim.rowCount, totalCols=dim.columnCount;
-    sub.textContent=`${totalRows.toLocaleString()} rows × ${totalCols} cols — reading in chunks`;
+    // Get file ID
+    const pathEnc=encodeURIComponent(cfg.odPath.startsWith('/')?cfg.odPath:'/'+cfg.odPath);
+    const metaRes=await fetch(`https://graph.microsoft.com/v1.0/me/drive/root:${pathEnc}`,{headers:{Authorization:'Bearer '+token}});
+    const meta=await metaRes.json();
+    if(meta.error) throw new Error(meta.error.message);
+    const fileId=meta.id;
+    const sizeMB=(meta.size/1024/1024).toFixed(1);
 
-    // Step 2: read header row
-    setProg(txt,pb,12,'📋 Reading header row...');
-    const headerData=await getRange(fileId,cfg.odSheet,1,1,totalCols);
-    const hdr=headerData[0].map(h=>String(h||'').trim());
+    setProg(txt,pb,10,`⬇️ Downloading file (${sizeMB} MB)...`);
+    sub.textContent='Please wait — downloading directly from OneDrive';
 
-    // Find column indices from header
+    // Download the actual xlsx file as ArrayBuffer
+    const dlRes=await fetch(`https://graph.microsoft.com/v1.0/me/drive/items/${fileId}/content`,{headers:{Authorization:'Bearer '+token}});
+    if(!dlRes.ok) throw new Error(`Download failed: HTTP ${dlRes.status}`);
+
+    setProg(txt,pb,55,'📦 File downloaded! Parsing Excel...');
+    sub.textContent='Processing rows locally — no API limits';
+
+    const arrayBuffer=await dlRes.arrayBuffer();
+
+    setProg(txt,pb,65,'🔍 Reading sheet data...');
+
+    // Parse with SheetJS — dense mode is faster
+    const workbook=XLSX.read(arrayBuffer,{type:'array',dense:true});
+
+    // Find the sheet
+    const sheetName=cfg.odSheet;
+    if(!workbook.SheetNames.includes(sheetName)){
+      throw new Error(`Sheet "${sheetName}" not found.\nAvailable sheets: ${workbook.SheetNames.join(', ')}`);
+    }
+
+    setProg(txt,pb,75,'⚡ Filtering Self Surat rows...');
+    sub.textContent='Processing '+sizeMB+'MB of data...';
+
+    const sheet=workbook.Sheets[sheetName];
+
+    // Convert to array of arrays (fastest method for large sheets)
+    const rows=XLSX.utils.sheet_to_json(sheet,{header:1,defval:'',blankrows:false});
+
+    if(!rows||rows.length<2) throw new Error('Sheet has no data rows.');
+
+    setProg(txt,pb,85,'🔄 Calculating stock...');
+
+    // Find columns from header
+    const hdr=rows[0].map(h=>String(h||'').trim());
     const fi=n=>hdr.findIndex(h=>h.toLowerCase()===n.toLowerCase());
     const iS=fi(cfg.colSku),iQ=fi(cfg.colQty),iT=fi(cfg.colType),iP=fi(cfg.colPlace);
-    if(iS<0) throw new Error(`Column "${cfg.colSku}" not found.\nHeaders: ${hdr.join(', ')}`);
+    if(iS<0) throw new Error(`Column "${cfg.colSku}" not found.\nHeaders found: ${hdr.filter(Boolean).join(', ')}`);
     if(iQ<0) throw new Error(`Column "${cfg.colQty}" not found.`);
     if(iT<0) throw new Error(`Column "${cfg.colType}" not found.`);
     if(iP<0) throw new Error(`Column "${cfg.colPlace}" not found.`);
 
-    // Step 3: read data rows in chunks, process on the fly
+    // Aggregate stock
     const map={};
-    const dataRows=totalRows-1; // exclude header
-    const chunks=Math.ceil(dataRows/CHUNK_SIZE);
+    const filterLower=cfg.placeFilter.toLowerCase();
+    const inLower=cfg.kwIn.toLowerCase();
+    const outLower=cfg.kwOut.toLowerCase();
 
-    for(let c=0;c<chunks;c++){
-      const startRow=2+(c*CHUNK_SIZE); // 1-indexed, skip header
-      const rowsToRead=Math.min(CHUNK_SIZE,totalRows-startRow+1);
-      if(rowsToRead<=0) break;
-
-      const pct=12+Math.round((c/chunks)*83);
-      const rowsDone=(c*CHUNK_SIZE).toLocaleString();
-      const rowsTotal=dataRows.toLocaleString();
-      setProg(txt,pb,pct,`📄 Reading rows... ${rowsDone} / ${rowsTotal}`);
-      sub.textContent=`Chunk ${c+1} of ${chunks} — SKUs found so far: ${Object.keys(map).length}`;
-
-      const rows=await getRange(fileId,cfg.odSheet,startRow,rowsToRead,totalCols);
-      // Process this chunk immediately
-      for(const row of rows){
-        if(String(row[iP]||'').trim().toLowerCase()!==cfg.placeFilter.toLowerCase()) continue;
-        const sku=String(row[iS]||'').trim();
-        const qty=parseFloat(row[iQ])||0;
-        const typ=String(row[iT]||'').trim().toLowerCase();
-        if(!sku) continue;
-        if(!map[sku]) map[sku]={inward:0,outward:0};
-        if(typ===cfg.kwIn.toLowerCase()) map[sku].inward+=qty;
-        if(typ===cfg.kwOut.toLowerCase()) map[sku].outward+=qty;
-      }
+    for(let i=1;i<rows.length;i++){
+      const row=rows[i];
+      if(String(row[iP]||'').trim().toLowerCase()!==filterLower) continue;
+      const sku=String(row[iS]||'').trim();
+      if(!sku) continue;
+      const qty=parseFloat(row[iQ])||0;
+      const typ=String(row[iT]||'').trim().toLowerCase();
+      if(!map[sku]) map[sku]={inward:0,outward:0};
+      if(typ===inLower) map[sku].inward+=qty;
+      if(typ===outLower) map[sku].outward+=qty;
     }
 
-    stockData=Object.entries(map).map(([sku,d])=>({sku,inward:d.inward,outward:d.outward,net:Math.max(0,d.inward-d.outward)})).sort((a,b)=>b.net-a.net);
+    stockData=Object.entries(map)
+      .map(([sku,d])=>({sku,inward:d.inward,outward:d.outward,net:Math.max(0,d.inward-d.outward)}))
+      .sort((a,b)=>b.net-a.net);
 
-    setProg(txt,pb,100,`✅ Done! ${stockData.length} SKUs loaded from "${cfg.placeFilter}".`);
-    sub.textContent=`Processed ${totalRows.toLocaleString()} rows in ${chunks} chunks`;
+    setProg(txt,pb,100,`✅ Done! ${stockData.length} SKUs from ${(rows.length-1).toLocaleString()} rows.`);
+    sub.textContent=`Parsed ${sizeMB}MB file locally in seconds`;
+
     set('lastFetch','Updated '+new Date().toLocaleTimeString('en-IN'));
     renderStats();currentPage=1;renderTable();
     show('secReport');hide('secConfig');
+
   }catch(e){
     txt.style.color='var(--red)';txt.textContent='❌ '+e.message;
-    showErr('fetchErr',e.message+'\n\nCommon fixes:\n• File path must start with /\n• Sheet name is case-sensitive\n• Sign out and sign back in if session expired');
+    showErr('fetchErr',e.message+'\n\nCommon fixes:\n• File path must start with /  e.g. /August Stock Final.xlsx\n• Sheet name is case-sensitive\n• Sign out and sign back in if session expired');
   }
   document.getElementById('fetchBtn').disabled=false;
 }
 
 async function doRefetch(){show('secConfig');hide('secReport');show('fetchProg');hide('fetchErr');await doFetch();}
 function showCfg(){show('secConfig');hide('secReport');}
-
-/* ── Graph API helpers ── */
-async function graphGet(url){
-  const r=await fetch(url,{headers:{Authorization:'Bearer '+token}});
-  const d=await r.json();
-  if(d.error) throw new Error(d.error.message||JSON.stringify(d.error));
-  return d;
-}
-async function getFileId(path){
-  const p=path.startsWith('/')?path:'/'+path;
-  const d=await graphGet(`https://graph.microsoft.com/v1.0/me/drive/root:${encodeURIComponent(p)}`);
-  if(!d.id) throw new Error('File not found: "'+path+'"');
-  return d.id;
-}
-
-/* ── Read a specific range by row number ── */
-async function getRange(fileId,sheet,startRow,rowCount,colCount){
-  // Convert to Excel column letter (e.g. 22 -> V)
-  const colLetter=colNumToLetter(colCount);
-  const endRow=startRow+rowCount-1;
-  const range=`A${startRow}:${colLetter}${endRow}`;
-  const url=`https://graph.microsoft.com/v1.0/me/drive/items/${fileId}/workbook/worksheets/${encodeURIComponent(sheet)}/range(address='${range}')?$select=values`;
-  const r=await fetch(url,{headers:{Authorization:'Bearer '+token}});
-  const d=await r.json();
-  if(d.error) throw new Error(d.error.message||JSON.stringify(d.error));
-  return d.values||[];
-}
-
-function colNumToLetter(n){
-  let s='';
-  while(n>0){const m=(n-1)%26;s=String.fromCharCode(65+m)+s;n=Math.floor((n-m-1)/26);}
-  return s;
-}
 
 /* ── Render ── */
 function renderStats(){
