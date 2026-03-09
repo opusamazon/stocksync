@@ -4,39 +4,29 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>StockReport — Self Surat</title>
-<!-- MSAL loaded first in head so it's always ready -->
-<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"
-        integrity="sha384-ABCDthis-is-optional"
-        crossorigin="anonymous"
-        onerror="document.getElementById('msalErr').style.display='block'"></script>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 <style>
 :root{
-  --bg:#0b0d12;--s1:#111318;--s2:#181b23;--s3:#1e222d;
-  --border:#252a38;
-  --accent:#f7931a;--accent2:#ff6b35;
-  --green:#00d68f;--red:#ff4d6a;--yellow:#ffd60a;--blue:#4da6ff;
-  --text:#e8eaf0;--muted:#6b7280;
+  --bg:#0b0d12;--s1:#111318;--s2:#181b23;--s3:#1e222d;--border:#252a38;
+  --accent:#f7931a;--accent2:#ff6b35;--green:#00d68f;--red:#ff4d6a;
+  --yellow:#ffd60a;--blue:#4da6ff;--text:#e8eaf0;--muted:#6b7280;
   --mono:'Space Mono',monospace;--sans:'DM Sans',sans-serif;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh}
 body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
-  background-image:linear-gradient(rgba(247,147,26,.03) 1px,transparent 1px),
-  linear-gradient(90deg,rgba(247,147,26,.03) 1px,transparent 1px);
+  background-image:linear-gradient(rgba(247,147,26,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(247,147,26,.03) 1px,transparent 1px);
   background-size:48px 48px}
 .wrap{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:36px 20px}
-
 header{display:flex;align-items:center;justify-content:space-between;margin-bottom:36px;padding-bottom:20px;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:14px}
 .logo{display:flex;align-items:center;gap:12px}
-.logo-icon{width:44px;height:44px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+.logo-icon{width:44px;height:44px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px}
 .logo h1{font-family:var(--mono);font-size:18px;font-weight:700}
 .logo p{font-size:11px;color:var(--muted);margin-top:3px}
 .pill{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--muted);font-family:var(--mono);background:var(--s2);border:1px solid var(--border);padding:6px 14px;border-radius:20px}
 .dot{width:7px;height:7px;border-radius:50%;background:var(--border)}
 .dot.on{background:var(--green);box-shadow:0 0 8px var(--green);animation:blink 2s infinite}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
-
 .login-screen{display:flex;align-items:center;justify-content:center;min-height:65vh}
 .login-box{background:var(--s1);border:1px solid var(--border);border-radius:20px;padding:48px 52px;max-width:460px;width:100%;text-align:center}
 .login-box h2{font-family:var(--mono);font-size:20px;margin-bottom:10px}
@@ -45,7 +35,6 @@ header{display:flex;align-items:center;justify-content:space-between;margin-bott
 .ms-btn:hover{background:#f0f0f0;transform:translateY(-1px)}
 .ms-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
 .login-note{font-size:11px;color:var(--muted);margin-top:14px;font-family:var(--mono)}
-
 .cfg-card{background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:24px;margin-bottom:16px}
 .cfg-title{font-family:var(--mono);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
@@ -55,14 +44,12 @@ header{display:flex;align-items:center;justify-content:space-between;margin-bott
 .fg input{background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:9px 13px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none;transition:border .2s;width:100%}
 .fg input:focus{border-color:var(--accent)}
 .fg input::placeholder{color:var(--muted)}
-
 .card{background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:24px;margin-bottom:16px}
 .ch{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px}
 .ct{font-family:var(--mono);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .tag{font-size:10px;padding:3px 9px;border-radius:20px;font-family:var(--mono);background:var(--s3);color:var(--muted)}
 .tag.g{background:rgba(0,214,143,.1);color:var(--green)}
 .tag.y{background:rgba(255,214,10,.1);color:var(--yellow)}
-
 .btn{display:inline-flex;align-items:center;gap:7px;padding:10px 20px;border-radius:9px;border:none;cursor:pointer;font-family:var(--mono);font-size:12px;font-weight:700;transition:all .2s;white-space:nowrap}
 .bp{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#000}
 .bp:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(247,147,26,.3)}
@@ -71,13 +58,11 @@ header{display:flex;align-items:center;justify-content:space-between;margin-bott
 .bgh:hover{border-color:var(--accent);color:var(--accent)}
 .bbl{background:rgba(77,166,255,.1);border:1px solid rgba(77,166,255,.25);color:var(--blue)}
 .bred{background:rgba(255,77,106,.1);border:1px solid rgba(255,77,106,.25);color:var(--red);font-size:11px;padding:6px 14px}
-
 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
 .stat{background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:16px 18px}
 .sv{font-family:var(--mono);font-size:26px;font-weight:700;line-height:1}
 .sv.o{color:var(--accent)}.sv.g{color:var(--green)}.sv.r{color:var(--red)}.sv.y{color:var(--yellow)}
 .sl{font-size:11px;color:var(--muted);margin-top:5px}
-
 .tw{overflow-x:auto;border-radius:10px;border:1px solid var(--border)}
 table{width:100%;border-collapse:collapse;font-size:12px}
 thead tr{background:var(--s2)}
@@ -92,40 +77,29 @@ tr:hover td{background:rgba(247,147,26,.025)}
 .badge.s{background:rgba(0,214,143,.1);color:var(--green)}
 .badge.e{background:rgba(255,77,106,.1);color:var(--red)}
 .badge.w{background:rgba(255,214,10,.08);color:var(--yellow)}
-
 .pb-wrap{background:var(--s2);border-radius:6px;height:6px;overflow:hidden;margin:10px 0}
 .pb{height:100%;border-radius:6px;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .35s ease}
-
 .toolbar{display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
 .sw{position:relative;flex:1;min-width:180px}
 .sw input{width:100%;padding:9px 12px 9px 36px;background:var(--s2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none;transition:border .2s}
 .sw input:focus{border-color:var(--accent)}
 .si{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:14px;pointer-events:none}
 .fsel{font-size:11px;padding:9px 12px;background:var(--s2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--mono);outline:none;cursor:pointer}
-
 .pager{display:flex;align-items:center;gap:8px;margin-top:14px;font-family:var(--mono);font-size:11px;color:var(--muted);justify-content:flex-end;flex-wrap:wrap}
 .pager button{background:var(--s2);border:1px solid var(--border);color:var(--muted);padding:5px 12px;border-radius:6px;cursor:pointer;font-family:var(--mono);font-size:11px;transition:all .2s}
 .pager button:hover{border-color:var(--accent);color:var(--accent)}
 .pager button:disabled{opacity:.3;cursor:not-allowed}
 .pg-info{padding:5px 10px;background:var(--s2);border:1px solid var(--border);border-radius:6px}
-
 .err-box{background:rgba(255,77,106,.07);border:1px solid rgba(255,77,106,.25);border-radius:10px;padding:14px 16px;font-size:12px;color:var(--red);font-family:var(--mono);line-height:1.8;white-space:pre-wrap}
 .info-box{border-radius:10px;padding:13px 16px;font-size:12px;line-height:1.75;margin-bottom:16px;background:rgba(0,214,143,.05);border:1px solid rgba(0,214,143,.2);color:var(--green)}
-
 .section{animation:fi .25s ease}
 @keyframes fi{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 .hidden{display:none!important}
-
-@media(max-width:680px){
-  .g2,.g3{grid-template-columns:1fr}
-  .stats{grid-template-columns:1fr 1fr}
-  .login-box{padding:32px 20px}
-}
+@media(max-width:680px){.g2,.g3{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}.login-box{padding:32px 20px}}
 </style>
 </head>
 <body>
 <div class="wrap">
-
 <header>
   <div class="logo">
     <div class="logo-icon">📊</div>
@@ -144,10 +118,6 @@ tr:hover td{background:rgba(247,147,26,.025)}
       <div style="font-size:42px;margin-bottom:16px">📦</div>
       <h2>StockReport</h2>
       <p>Sign in with your Microsoft / OneDrive account to generate the Self Surat stock report.</p>
-      <!-- MSAL load error shown here if CDN fails -->
-      <div id="msalErr" style="display:none;margin-bottom:16px" class="err-box">
-        ❌ Microsoft login library failed to load. Please check your internet connection and refresh the page.
-      </div>
       <button class="ms-btn" id="loginBtn" onclick="signIn()">
         <svg width="20" height="20" viewBox="0 0 21 21" fill="none">
           <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
@@ -157,9 +127,8 @@ tr:hover td{background:rgba(247,147,26,.025)}
         </svg>
         Sign in with Microsoft
       </button>
-      <div class="login-note">Opens a popup — no password stored in this app</div>
+      <div class="login-note">Redirects to Microsoft — returns back automatically</div>
       <div id="loginErr" class="hidden err-box" style="text-align:left;margin-top:14px"></div>
-      <div id="initStatus" style="font-size:11px;color:var(--muted);margin-top:10px;font-family:var(--mono)">Initializing...</div>
     </div>
   </div>
 </div>
@@ -249,153 +218,155 @@ tr:hover td{background:rgba(247,147,26,.025)}
 </div>
 
 <script>
-/* ══════════════════════════════════════════════
-   PERMANENT CONFIG
-   GitHub Pages: https://opusamazon.github.io/stocksync/
-   Azure App:    StockSync (opus.amazon@gmail.com)
-══════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════
+   PERMANENT CONFIG — zero external library dependency
+   Uses native OAuth2 PKCE redirect — no MSAL needed
+   GitHub: https://opusamazon.github.io/stocksync/
+═══════════════════════════════════════════════════ */
 const CLIENT_ID    = 'b4e59877-96a2-44a3-a8f8-d3cfaaceb7de';
 const REDIRECT_URI = 'https://opusamazon.github.io/stocksync/';
+const AUTHORITY    = 'https://login.microsoftonline.com/consumers/oauth2/v2.0';
+const SCOPES       = 'Files.ReadWrite User.Read';
 
 const DEFAULTS = {
-  odPath:      '/StockRegister.xlsx',
-  odSheet:     'Sheet1',
-  placeFilter: 'Self Surat',
-  colSku:      'Master SKU',
-  colQty:      'Quantity',
-  colType:     'Stock Type',
-  colPlace:    'Place',
-  kwIn:        'Inward',
-  kwOut:       'Outward',
+  odPath:'/StockRegister.xlsx', odSheet:'Sheet1', placeFilter:'Self Surat',
+  colSku:'Master SKU', colQty:'Quantity', colType:'Stock Type', colPlace:'Place',
+  kwIn:'Inward', kwOut:'Outward',
 };
 
-const SCOPES = ['Files.ReadWrite', 'User.Read'];
+let token=null, stockData=[], filteredData=[], currentPage=1, pageSize=50;
 
-let msalInstance = null;
-let msalReady    = false;
-let token        = null;
-let stockData    = [];
-let filteredData = [];
-let currentPage  = 1;
-let pageSize     = 50;
+/* ═══════════════════════════════════════════════════
+   PKCE helpers — pure browser crypto, no library
+═══════════════════════════════════════════════════ */
+function rnd(n){
+  const a=new Uint8Array(n); crypto.getRandomValues(a);
+  return btoa(String.fromCharCode(...a)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+}
+async function sha256b64(s){
+  const h=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));
+  return btoa(String.fromCharCode(...new Uint8Array(h))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+}
 
-/* ── Boot: wait for DOM + MSAL ── */
-document.addEventListener('DOMContentLoaded', async () => {
-  const statusEl = document.getElementById('initStatus');
+/* ═══════════════════════════════════════════════════
+   SIGN IN — redirect to Microsoft, come back with code
+═══════════════════════════════════════════════════ */
+async function signIn(){
+  const btn=document.getElementById('loginBtn');
+  btn.disabled=true; btn.textContent='Redirecting to Microsoft...';
+  const verifier=rnd(43);
+  const challenge=await sha256b64(verifier);
+  const state=rnd(16);
+  // Save to sessionStorage — survives the redirect
+  sessionStorage.setItem('pkce_v',verifier);
+  sessionStorage.setItem('pkce_s',state);
+  const p=new URLSearchParams({
+    client_id:CLIENT_ID, response_type:'code',
+    redirect_uri:REDIRECT_URI, response_mode:'query',
+    scope:SCOPES, state, code_challenge:challenge,
+    code_challenge_method:'S256',
+  });
+  // Full page redirect — no popup needed, no library needed
+  window.location.href=`${AUTHORITY}/authorize?${p}`;
+}
 
-  // Wait for msal to be available (max 5 seconds)
-  let tries = 0;
-  while (typeof msal === 'undefined' && tries < 50) {
-    await new Promise(r => setTimeout(r, 100));
-    tries++;
-  }
+/* ═══════════════════════════════════════════════════
+   HANDLE RETURN — exchange code for token on page load
+═══════════════════════════════════════════════════ */
+async function handleReturn(){
+  const p=new URLSearchParams(window.location.search);
+  const code=p.get('code'), errParam=p.get('error');
 
-  if (typeof msal === 'undefined') {
-    statusEl.style.color = 'var(--red)';
-    statusEl.textContent = '❌ MSAL library failed to load. Please refresh.';
+  // Show any stored auth errors from previous attempt
+  if(errParam){
+    const desc=p.get('error_description')||errParam;
+    showErr('loginErr','❌ Microsoft login error:\n'+desc);
+    window.history.replaceState({},'',window.location.pathname);
     return;
   }
 
-  try {
-    statusEl.textContent = 'Loading...';
-    msalInstance = new msal.PublicClientApplication({
-      auth: {
-        clientId:    CLIENT_ID,
-        authority:   'https://login.microsoftonline.com/consumers',
-        redirectUri: REDIRECT_URI,
-      },
-      cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: true },
-    });
-
-    await msalInstance.initialize();
-    await msalInstance.handleRedirectPromise();
-
-    msalReady = true;
-    statusEl.textContent = '✅ Ready — click to sign in';
-    statusEl.style.color = 'var(--green)';
-    document.getElementById('loginBtn').disabled = false;
-
-    // Auto-login if session exists
-    const accounts = msalInstance.getAllAccounts();
-    if (accounts.length > 0) {
-      try {
-        const r = await msalInstance.acquireTokenSilent({ scopes: SCOPES, account: accounts[0] });
-        token = r.accessToken;
-        onSignedIn(accounts[0]);
-      } catch(_) {}
+  // Not a redirect — check if we have a stored token
+  if(!code){
+    const stored=localStorage.getItem('ss_token');
+    const exp=parseInt(localStorage.getItem('ss_exp')||'0');
+    if(stored && Date.now()<exp){
+      token=stored;
+      const name=localStorage.getItem('ss_name')||'Signed in';
+      onSignedIn(name);
     }
-  } catch(e) {
-    statusEl.style.color = 'var(--red)';
-    statusEl.textContent = '❌ Init error: ' + e.message;
-    console.error('MSAL init error:', e);
-  }
-});
-
-/* ══ AUTH ══ */
-async function signIn() {
-  if (!msalReady || !msalInstance) {
-    showErr('loginErr', '⏳ Still initializing — please wait a moment and try again.');
     return;
   }
-  const btn = document.getElementById('loginBtn');
-  btn.disabled = true;
-  btn.textContent = 'Opening Microsoft login...';
-  hide('loginErr');
+
+  // We have a code — exchange it for a token
+  const verifier=sessionStorage.getItem('pkce_v');
+  const state=sessionStorage.getItem('pkce_s');
+  if(p.get('state')!==state){
+    showErr('loginErr','❌ State mismatch. Please try again.');
+    window.history.replaceState({},'',window.location.pathname);
+    return;
+  }
+
+  // Clean URL immediately
+  window.history.replaceState({},'',window.location.pathname);
+  sessionStorage.removeItem('pkce_v'); sessionStorage.removeItem('pkce_s');
+
   try {
-    const result = await msalInstance.loginPopup({ scopes: SCOPES });
-    token = result.accessToken;
-    onSignedIn(result.account);
-  } catch(e) {
-    const msg = e.errorMessage || e.message || String(e);
-    showErr('loginErr', '❌ Login failed:\n' + msg);
-    resetLoginBtn();
+    const res=await fetch(`${AUTHORITY}/token`,{
+      method:'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body:new URLSearchParams({
+        client_id:CLIENT_ID, grant_type:'authorization_code',
+        code, redirect_uri:REDIRECT_URI, code_verifier:verifier, scope:SCOPES,
+      })
+    });
+    const data=await res.json();
+    if(!data.access_token) throw new Error(data.error_description||JSON.stringify(data));
+
+    // Store token with expiry (default 1 hour)
+    const exp=Date.now()+(data.expires_in||3600)*1000;
+    localStorage.setItem('ss_token',data.access_token);
+    localStorage.setItem('ss_exp',exp.toString());
+    token=data.access_token;
+
+    // Get user name
+    try{
+      const u=await(await fetch('https://graph.microsoft.com/v1.0/me',{headers:{Authorization:'Bearer '+token}})).json();
+      const name=u.displayName||u.userPrincipalName||'Signed in';
+      localStorage.setItem('ss_name',name);
+      onSignedIn(name);
+    }catch(_){onSignedIn('Signed in');}
+
+  } catch(e){
+    showErr('loginErr','❌ Token exchange failed:\n'+e.message+'\n\nPlease try signing in again.');
   }
 }
 
-async function getToken() {
-  const accounts = msalInstance.getAllAccounts();
-  if (!accounts.length) throw new Error('Not signed in.');
-  try {
-    const r = await msalInstance.acquireTokenSilent({ scopes: SCOPES, account: accounts[0] });
-    return r.accessToken;
-  } catch(_) {
-    const r = await msalInstance.acquireTokenPopup({ scopes: SCOPES });
-    return r.accessToken;
-  }
-}
-
-function onSignedIn(account) {
-  const name = account?.name || account?.username || 'Signed in';
-  document.getElementById('liveLabel').textContent = name;
-  document.getElementById('liveDot').className = 'dot on';
+function onSignedIn(name){
+  document.getElementById('liveLabel').textContent=name;
+  document.getElementById('liveDot').className='dot on';
   document.getElementById('signOutBtn').classList.remove('hidden');
   populateCfg();
   show('secConfig'); hide('secLogin');
 }
 
-function signOut() {
-  msalInstance.logoutPopup().catch(()=>{});
-  token = null; stockData = [];
-  document.getElementById('liveDot').className = 'dot';
-  document.getElementById('liveLabel').textContent = 'Not signed in';
+function signOut(){
+  localStorage.removeItem('ss_token');
+  localStorage.removeItem('ss_exp');
+  localStorage.removeItem('ss_name');
+  token=null; stockData=[];
+  document.getElementById('liveDot').className='dot';
+  document.getElementById('liveLabel').textContent='Not signed in';
   document.getElementById('signOutBtn').classList.add('hidden');
   show('secLogin'); hide('secConfig'); hide('secReport');
-  resetLoginBtn();
+  const btn=document.getElementById('loginBtn');
+  btn.disabled=false;
+  btn.innerHTML=`<svg width="20" height="20" viewBox="0 0 21 21" fill="none"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>Sign in with Microsoft`;
 }
 
-function resetLoginBtn() {
-  const btn = document.getElementById('loginBtn');
-  btn.disabled = !msalReady;
-  btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 21 21" fill="none">
-    <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
-    <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
-    <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
-    <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
-  </svg>Sign in with Microsoft`;
-}
-
-/* ══ CONFIG ══ */
-function populateCfg() {
+/* ═══════════════════════════════════════════════════
+   CONFIG
+═══════════════════════════════════════════════════ */
+function populateCfg(){
   document.getElementById('cfgPath').value   = DEFAULTS.odPath;
   document.getElementById('cfgSheet').value  = DEFAULTS.odSheet;
   document.getElementById('cfgSku').value    = DEFAULTS.colSku;
@@ -406,74 +377,68 @@ function populateCfg() {
   document.getElementById('cfgOut').value    = DEFAULTS.kwOut;
   document.getElementById('cfgFilter').value = DEFAULTS.placeFilter;
 }
-
-function getCfg() {
-  return {
-    odPath:      v('cfgPath')   || DEFAULTS.odPath,
-    odSheet:     v('cfgSheet')  || DEFAULTS.odSheet,
-    placeFilter: v('cfgFilter') || DEFAULTS.placeFilter,
-    colSku:      v('cfgSku')    || DEFAULTS.colSku,
-    colQty:      v('cfgQty')    || DEFAULTS.colQty,
-    colType:     v('cfgType')   || DEFAULTS.colType,
-    colPlace:    v('cfgPlace')  || DEFAULTS.colPlace,
-    kwIn:        v('cfgIn')     || DEFAULTS.kwIn,
-    kwOut:       v('cfgOut')    || DEFAULTS.kwOut,
+function getCfg(){
+  return{
+    odPath:v('cfgPath')||DEFAULTS.odPath, odSheet:v('cfgSheet')||DEFAULTS.odSheet,
+    placeFilter:v('cfgFilter')||DEFAULTS.placeFilter, colSku:v('cfgSku')||DEFAULTS.colSku,
+    colQty:v('cfgQty')||DEFAULTS.colQty, colType:v('cfgType')||DEFAULTS.colType,
+    colPlace:v('cfgPlace')||DEFAULTS.colPlace, kwIn:v('cfgIn')||DEFAULTS.kwIn,
+    kwOut:v('cfgOut')||DEFAULTS.kwOut,
   };
 }
 
-/* ══ FETCH ══ */
-async function doFetch() {
-  const cfg = getCfg();
-  const txt = document.getElementById('fetchTxt');
-  const pb  = document.getElementById('fetchPb');
-  document.getElementById('fetchBtn').disabled = true;
-  show('fetchProg'); hide('fetchErr');
-  txt.style.color = 'var(--muted)';
-  try {
-    setProg(txt,pb,10,'🔐 Getting access token...');
-    token = await getToken();
-    setProg(txt,pb,30,'📂 Locating file on OneDrive...');
-    const fileId = await getFileId(cfg.odPath);
-    setProg(txt,pb,58,`📄 Reading sheet "${cfg.odSheet}"...`);
-    const rows = await getRows(fileId, cfg.odSheet);
-    setProg(txt,pb,82,`🔄 Filtering "${cfg.placeFilter}"...`);
-    stockData = processStock(rows, cfg);
+/* ═══════════════════════════════════════════════════
+   FETCH
+═══════════════════════════════════════════════════ */
+async function doFetch(){
+  const cfg=getCfg();
+  const txt=document.getElementById('fetchTxt'),pb=document.getElementById('fetchPb');
+  document.getElementById('fetchBtn').disabled=true;
+  show('fetchProg'); hide('fetchErr'); txt.style.color='var(--muted)';
+  try{
+    // Refresh token if expired
+    if(!token||Date.now()>parseInt(localStorage.getItem('ss_exp')||'0')){
+      showErr('fetchErr','Session expired. Please sign out and sign in again.');
+      document.getElementById('fetchBtn').disabled=false; return;
+    }
+    setProg(txt,pb,20,'📂 Locating file on OneDrive...');
+    const fileId=await getFileId(cfg.odPath);
+    setProg(txt,pb,50,`📄 Reading sheet "${cfg.odSheet}"...`);
+    const rows=await getRows(fileId,cfg.odSheet);
+    setProg(txt,pb,80,`🔄 Filtering "${cfg.placeFilter}"...`);
+    stockData=processStock(rows,cfg);
     setProg(txt,pb,100,`✅ ${stockData.length} SKUs loaded.`);
     set('lastFetch','Updated '+new Date().toLocaleTimeString('en-IN'));
     renderStats(); currentPage=1; renderTable();
     show('secReport'); hide('secConfig');
-  } catch(e) {
+  }catch(e){
     txt.style.color='var(--red)'; txt.textContent='❌ '+e.message;
-    showErr('fetchErr', e.message+'\n\nCommon fixes:\n• File path must start with /\n• Sheet name is case-sensitive\n• Make sure file exists in OneDrive\n• Try Sign Out → Sign In again');
+    showErr('fetchErr',e.message+'\n\nCommon fixes:\n• File path must start with /  e.g. /Documents/Stock.xlsx\n• Sheet name is case-sensitive\n• Make sure file exists in your OneDrive\n• Sign out and sign back in if session expired');
   }
   document.getElementById('fetchBtn').disabled=false;
 }
+async function doRefetch(){show('secConfig');hide('secReport');show('fetchProg');hide('fetchErr');await doFetch();}
+function showCfg(){show('secConfig');hide('secReport');}
 
-async function doRefetch() { show('secConfig'); hide('secReport'); show('fetchProg'); hide('fetchErr'); await doFetch(); }
-function showCfg() { show('secConfig'); hide('secReport'); }
-
-async function graphGet(url) {
-  const r = await fetch(url, { headers:{ Authorization:'Bearer '+token } });
-  const d = await r.json();
-  if (d.error) throw new Error(d.error.message || JSON.stringify(d.error));
+async function graphGet(url){
+  const r=await fetch(url,{headers:{Authorization:'Bearer '+token}});
+  const d=await r.json();
+  if(d.error) throw new Error(d.error.message||JSON.stringify(d.error));
   return d;
 }
-
-async function getFileId(path) {
-  const p = path.startsWith('/')?path:'/'+path;
-  const d = await graphGet(`https://graph.microsoft.com/v1.0/me/drive/root:${encodeURIComponent(p)}`);
-  if (!d.id) throw new Error('File not found: "'+path+'"');
+async function getFileId(path){
+  const p=path.startsWith('/')?path:'/'+path;
+  const d=await graphGet(`https://graph.microsoft.com/v1.0/me/drive/root:${encodeURIComponent(p)}`);
+  if(!d.id) throw new Error('File not found: "'+path+'"');
   return d.id;
 }
-
-async function getRows(fileId, sheet) {
-  const d = await graphGet(`https://graph.microsoft.com/v1.0/me/drive/items/${fileId}/workbook/worksheets/${encodeURIComponent(sheet)}/usedRange`);
-  if (!d.values) throw new Error('Cannot read sheet: "'+sheet+'"');
+async function getRows(fileId,sheet){
+  const d=await graphGet(`https://graph.microsoft.com/v1.0/me/drive/items/${fileId}/workbook/worksheets/${encodeURIComponent(sheet)}/usedRange`);
+  if(!d.values) throw new Error('Cannot read sheet: "'+sheet+'"');
   return d.values;
 }
-
-function processStock(rows, cfg) {
-  if (!rows||rows.length<2) throw new Error('Sheet has no data rows.');
+function processStock(rows,cfg){
+  if(!rows||rows.length<2) throw new Error('Sheet has no data rows.');
   const hdr=rows[0].map(h=>String(h||'').trim());
   const fi=n=>hdr.findIndex(h=>h.toLowerCase()===n.toLowerCase());
   const iS=fi(cfg.colSku),iQ=fi(cfg.colQty),iT=fi(cfg.colType),iP=fi(cfg.colPlace);
@@ -490,28 +455,24 @@ function processStock(rows, cfg) {
     const typ=String(row[iT]||'').trim().toLowerCase();
     if(!sku) continue;
     if(!map[sku]) map[sku]={inward:0,outward:0};
-    if(typ===cfg.kwIn.toLowerCase())  map[sku].inward  +=qty;
-    if(typ===cfg.kwOut.toLowerCase()) map[sku].outward +=qty;
+    if(typ===cfg.kwIn.toLowerCase()) map[sku].inward+=qty;
+    if(typ===cfg.kwOut.toLowerCase()) map[sku].outward+=qty;
   }
-  return Object.entries(map)
-    .map(([sku,d])=>({sku,inward:d.inward,outward:d.outward,net:Math.max(0,d.inward-d.outward)}))
-    .sort((a,b)=>b.net-a.net);
+  return Object.entries(map).map(([sku,d])=>({sku,inward:d.inward,outward:d.outward,net:Math.max(0,d.inward-d.outward)})).sort((a,b)=>b.net-a.net);
 }
 
-/* ══ RENDER ══ */
+/* ═══════════════════════════════════════════════════
+   RENDER
+═══════════════════════════════════════════════════ */
 function renderStats(){
-  const inS=stockData.filter(x=>x.net>0).length;
-  const zero=stockData.filter(x=>x.net<=0).length;
+  const inS=stockData.filter(x=>x.net>0).length,zero=stockData.filter(x=>x.net<=0).length;
   const tot=stockData.reduce((s,x)=>s+x.net,0);
-  set('st-total',stockData.length); set('st-in',inS);
-  set('st-zero',zero); set('st-units',tot.toLocaleString('en-IN'));
-  set('skuCnt',stockData.length+' SKUs');
+  set('st-total',stockData.length);set('st-in',inS);set('st-zero',zero);
+  set('st-units',tot.toLocaleString('en-IN'));set('skuCnt',stockData.length+' SKUs');
 }
-
 function renderTable(){
   const q=document.getElementById('srch').value.toLowerCase().trim();
-  const fil=document.getElementById('filterSel').value;
-  const srt=document.getElementById('sortSel').value;
+  const fil=document.getElementById('filterSel').value,srt=document.getElementById('sortSel').value;
   filteredData=stockData.filter(x=>{
     if(q&&!x.sku.toLowerCase().includes(q)) return false;
     if(fil==='in'&&x.net<=0) return false;
@@ -519,14 +480,9 @@ function renderTable(){
     if(fil==='low'&&(x.net<=0||x.net>10)) return false;
     return true;
   }).sort((a,b)=>{
-    switch(srt){
-      case 'net-asc': return a.net-b.net;
-      case 'sku-asc': return a.sku.localeCompare(b.sku);
-      case 'sku-desc': return b.sku.localeCompare(a.sku);
-      case 'in-desc': return b.inward-a.inward;
-      case 'out-desc': return b.outward-a.outward;
-      default: return b.net-a.net;
-    }
+    switch(srt){case 'net-asc':return a.net-b.net;case 'sku-asc':return a.sku.localeCompare(b.sku);
+    case 'sku-desc':return b.sku.localeCompare(a.sku);case 'in-desc':return b.inward-a.inward;
+    case 'out-desc':return b.outward-a.outward;default:return b.net-a.net;}
   });
   const tot=filteredData.length,pages=Math.max(1,Math.ceil(tot/pageSize));
   if(currentPage>pages) currentPage=pages;
@@ -536,30 +492,27 @@ function renderTable(){
     const bdg=x.net===0?'<span class="badge e">✗ Zero</span>':x.net<=10?'<span class="badge w">⚠ Low</span>':'<span class="badge s">✓ In Stock</span>';
     return `<tr><td style="color:var(--muted);font-family:var(--mono);font-size:10px">${s+i+1}</td><td class="sku">${x.sku}</td><td class="num g">${x.inward.toLocaleString('en-IN')}</td><td class="num r">${x.outward.toLocaleString('en-IN')}</td><td class="num ${cls}">${x.net.toLocaleString('en-IN')}</td><td>${bdg}</td></tr>`;
   }).join('');
-  set('rowInfo',`Showing ${s+1}–${e} of ${tot} SKUs`);
-  set('pgInfo',`${currentPage} / ${pages}`);
+  set('rowInfo',`Showing ${s+1}–${e} of ${tot} SKUs`);set('pgInfo',`${currentPage} / ${pages}`);
   document.getElementById('prevBtn').disabled=currentPage<=1;
   document.getElementById('nextBtn').disabled=currentPage>=pages;
 }
-
 function changePage(d){currentPage+=d;renderTable();}
 function changePageSize(){pageSize=parseInt(document.getElementById('pgSize').value);currentPage=1;renderTable();}
-
 function exportCSV(){
   const data=filteredData.length?filteredData:stockData;
   const csv=[['Master SKU','Inward','Outward','Net Stock','Status'],...data.map(x=>[x.sku,x.inward,x.outward,x.net,x.net===0?'Zero':x.net<=10?'Low':'In Stock'])].map(r=>r.join(',')).join('\n');
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
-  a.download=`stock_surat_${new Date().toISOString().slice(0,10)}.csv`;
-  a.click();
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download=`stock_surat_${new Date().toISOString().slice(0,10)}.csv`;a.click();
 }
-
 function v(id){return document.getElementById(id).value.trim();}
 function set(id,t){document.getElementById(id).textContent=t;}
 function show(id){document.getElementById(id).classList.remove('hidden');}
 function hide(id){document.getElementById(id).classList.add('hidden');}
 function setProg(t,p,pct,msg){t.textContent=msg;p.style.width=pct+'%';}
 function showErr(id,msg){const e=document.getElementById(id);e.classList.remove('hidden');e.textContent=msg;}
+
+// Run on page load
+handleReturn();
 </script>
 </body>
 </html>
