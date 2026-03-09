@@ -4,11 +4,16 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>StockReport — Self Surat</title>
+<!-- MSAL loaded first in head so it's always ready -->
+<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"
+        integrity="sha384-ABCDthis-is-optional"
+        crossorigin="anonymous"
+        onerror="document.getElementById('msalErr').style.display='block'"></script>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 <style>
 :root{
   --bg:#0b0d12;--s1:#111318;--s2:#181b23;--s3:#1e222d;
-  --border:#252a38;--border2:#2f3547;
+  --border:#252a38;
   --accent:#f7931a;--accent2:#ff6b35;
   --green:#00d68f;--red:#ff4d6a;--yellow:#ffd60a;--blue:#4da6ff;
   --text:#e8eaf0;--muted:#6b7280;
@@ -37,7 +42,7 @@ header{display:flex;align-items:center;justify-content:space-between;margin-bott
 .login-box h2{font-family:var(--mono);font-size:20px;margin-bottom:10px}
 .login-box p{color:var(--muted);font-size:13px;line-height:1.7;margin-bottom:28px}
 .ms-btn{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;padding:14px 24px;background:#fff;color:#1a1a1a;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s;font-family:var(--sans)}
-.ms-btn:hover{background:#f0f0f0;transform:translateY(-1px);box-shadow:0 6px 20px rgba(255,255,255,.1)}
+.ms-btn:hover{background:#f0f0f0;transform:translateY(-1px)}
 .ms-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
 .login-note{font-size:11px;color:var(--muted);margin-top:14px;font-family:var(--mono)}
 
@@ -65,7 +70,6 @@ header{display:flex;align-items:center;justify-content:space-between;margin-bott
 .bgh{background:transparent;border:1px solid var(--border);color:var(--muted)}
 .bgh:hover{border-color:var(--accent);color:var(--accent)}
 .bbl{background:rgba(77,166,255,.1);border:1px solid rgba(77,166,255,.25);color:var(--blue)}
-.bbl:hover{background:rgba(77,166,255,.2)}
 .bred{background:rgba(255,77,106,.1);border:1px solid rgba(255,77,106,.25);color:var(--red);font-size:11px;padding:6px 14px}
 
 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
@@ -98,7 +102,6 @@ tr:hover td{background:rgba(247,147,26,.025)}
 .sw input:focus{border-color:var(--accent)}
 .si{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:14px;pointer-events:none}
 .fsel{font-size:11px;padding:9px 12px;background:var(--s2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--mono);outline:none;cursor:pointer}
-.fsel:focus{border-color:var(--accent)}
 
 .pager{display:flex;align-items:center;gap:8px;margin-top:14px;font-family:var(--mono);font-size:11px;color:var(--muted);justify-content:flex-end;flex-wrap:wrap}
 .pager button{background:var(--s2);border:1px solid var(--border);color:var(--muted);padding:5px 12px;border-radius:6px;cursor:pointer;font-family:var(--mono);font-size:11px;transition:all .2s}
@@ -106,7 +109,7 @@ tr:hover td{background:rgba(247,147,26,.025)}
 .pager button:disabled{opacity:.3;cursor:not-allowed}
 .pg-info{padding:5px 10px;background:var(--s2);border:1px solid var(--border);border-radius:6px}
 
-.err-box{background:rgba(255,77,106,.07);border:1px solid rgba(255,77,106,.25);border-radius:10px;padding:14px 16px;font-size:12px;color:var(--red);font-family:var(--mono);line-height:1.8;margin-top:14px;white-space:pre-wrap}
+.err-box{background:rgba(255,77,106,.07);border:1px solid rgba(255,77,106,.25);border-radius:10px;padding:14px 16px;font-size:12px;color:var(--red);font-family:var(--mono);line-height:1.8;white-space:pre-wrap}
 .info-box{border-radius:10px;padding:13px 16px;font-size:12px;line-height:1.75;margin-bottom:16px;background:rgba(0,214,143,.05);border:1px solid rgba(0,214,143,.2);color:var(--green)}
 
 .section{animation:fi .25s ease}
@@ -126,10 +129,7 @@ tr:hover td{background:rgba(247,147,26,.025)}
 <header>
   <div class="logo">
     <div class="logo-icon">📊</div>
-    <div>
-      <h1>StockReport</h1>
-      <p>Self Surat Warehouse — Live Stock View</p>
-    </div>
+    <div><h1>StockReport</h1><p>Self Surat Warehouse — Live Stock View</p></div>
   </div>
   <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
     <div class="pill"><div class="dot" id="liveDot"></div><span id="liveLabel">Not signed in</span></div>
@@ -144,6 +144,10 @@ tr:hover td{background:rgba(247,147,26,.025)}
       <div style="font-size:42px;margin-bottom:16px">📦</div>
       <h2>StockReport</h2>
       <p>Sign in with your Microsoft / OneDrive account to generate the Self Surat stock report.</p>
+      <!-- MSAL load error shown here if CDN fails -->
+      <div id="msalErr" style="display:none;margin-bottom:16px" class="err-box">
+        ❌ Microsoft login library failed to load. Please check your internet connection and refresh the page.
+      </div>
       <button class="ms-btn" id="loginBtn" onclick="signIn()">
         <svg width="20" height="20" viewBox="0 0 21 21" fill="none">
           <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
@@ -155,6 +159,7 @@ tr:hover td{background:rgba(247,147,26,.025)}
       </button>
       <div class="login-note">Opens a popup — no password stored in this app</div>
       <div id="loginErr" class="hidden err-box" style="text-align:left;margin-top:14px"></div>
+      <div id="initStatus" style="font-size:11px;color:var(--muted);margin-top:10px;font-family:var(--mono)">Initializing...</div>
     </div>
   </div>
 </div>
@@ -162,21 +167,15 @@ tr:hover td{background:rgba(247,147,26,.025)}
 <!-- CONFIG -->
 <div id="secConfig" class="section hidden">
   <div class="cfg-card">
-    <div class="cfg-title">
-      ⚙️ File Settings
-      <span style="font-size:10px;color:var(--green);background:rgba(0,214,143,.1);padding:3px 9px;border-radius:20px;font-weight:400;font-family:var(--mono)">
-        Update file path then fetch
-      </span>
+    <div class="cfg-title">⚙️ File Settings
+      <span style="font-size:10px;color:var(--green);background:rgba(0,214,143,.1);padding:3px 9px;border-radius:20px;font-weight:400;font-family:var(--mono)">Update file path then fetch</span>
     </div>
     <div class="info-box">
       ✅ Signed in! Set the <strong style="color:var(--text)">OneDrive File Path</strong> to your stock Excel file then click Fetch.<br>
-      <strong style="color:var(--text)">Example:</strong> /Documents/Stock.xlsx &nbsp;|&nbsp; /StockRegister.xlsx &nbsp;|&nbsp; /MyFiles/StockData.xlsx
+      <strong style="color:var(--text)">Example:</strong> /Documents/Stock.xlsx &nbsp;|&nbsp; /StockRegister.xlsx
     </div>
     <div class="g2" style="margin-bottom:12px">
-      <div class="fg">
-        <label>OneDrive File Path</label>
-        <input id="cfgPath" placeholder="/Documents/StockRegister.xlsx" style="border-color:var(--accent)"/>
-      </div>
+      <div class="fg"><label>OneDrive File Path</label><input id="cfgPath" placeholder="/Documents/StockRegister.xlsx" style="border-color:var(--accent)"/></div>
       <div class="fg"><label>Sheet Name</label><input id="cfgSheet"/></div>
     </div>
     <div class="g3" style="margin-bottom:12px">
@@ -188,7 +187,7 @@ tr:hover td{background:rgba(247,147,26,.025)}
       <div class="fg"><label>Outward Value</label><input id="cfgOut"/></div>
     </div>
     <div class="fg" style="max-width:300px;margin-bottom:18px">
-      <label>Warehouse Filter (exact match)</label>
+      <label>Warehouse Filter</label>
       <input id="cfgFilter" style="border-color:var(--accent)"/>
     </div>
     <button class="btn bp" id="fetchBtn" onclick="doFetch()">🔄 Fetch Stock from OneDrive</button>
@@ -196,7 +195,7 @@ tr:hover td{background:rgba(247,147,26,.025)}
       <div id="fetchTxt" style="font-size:12px;font-family:var(--mono);color:var(--muted);margin-bottom:4px">Loading...</div>
       <div class="pb-wrap"><div class="pb" id="fetchPb" style="width:0%"></div></div>
     </div>
-    <div id="fetchErr" class="hidden err-box"></div>
+    <div id="fetchErr" class="hidden err-box" style="margin-top:14px"></div>
   </div>
 </div>
 
@@ -210,11 +209,7 @@ tr:hover td{background:rgba(247,147,26,.025)}
   </div>
   <div class="card">
     <div class="ch">
-      <div class="ct">
-        📦 Stock — Self Surat Only
-        <span class="tag g" id="skuCnt">0 SKUs</span>
-        <span class="tag y" id="lastFetch">—</span>
-      </div>
+      <div class="ct">📦 Stock — Self Surat Only <span class="tag g" id="skuCnt">0 SKUs</span><span class="tag y" id="lastFetch">—</span></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn bbl" onclick="doRefetch()" style="font-size:11px;padding:7px 13px">🔄 Refresh</button>
         <button class="btn bgh" onclick="exportCSV()" style="font-size:11px;padding:7px 13px">⬇ Export CSV</button>
@@ -224,25 +219,18 @@ tr:hover td{background:rgba(247,147,26,.025)}
     <div class="toolbar">
       <div class="sw"><span class="si">🔍</span><input id="srch" placeholder="Search SKU..." oninput="renderTable()"/></div>
       <select class="fsel" id="filterSel" onchange="renderTable()">
-        <option value="all">All SKUs</option>
-        <option value="in">In Stock Only</option>
-        <option value="zero">Zero Stock</option>
-        <option value="low">Low Stock (≤10)</option>
+        <option value="all">All SKUs</option><option value="in">In Stock Only</option>
+        <option value="zero">Zero Stock</option><option value="low">Low Stock (≤10)</option>
       </select>
       <select class="fsel" id="sortSel" onchange="renderTable()">
-        <option value="net-desc">Stock: High → Low</option>
-        <option value="net-asc">Stock: Low → High</option>
-        <option value="sku-asc">SKU: A → Z</option>
-        <option value="sku-desc">SKU: Z → A</option>
-        <option value="in-desc">Inward: High → Low</option>
-        <option value="out-desc">Outward: High → Low</option>
+        <option value="net-desc">Stock: High → Low</option><option value="net-asc">Stock: Low → High</option>
+        <option value="sku-asc">SKU: A → Z</option><option value="sku-desc">SKU: Z → A</option>
+        <option value="in-desc">Inward: High → Low</option><option value="out-desc">Outward: High → Low</option>
       </select>
     </div>
     <div class="tw">
       <table>
-        <thead><tr>
-          <th>#</th><th>Master SKU</th><th>Σ Inward</th><th>Σ Outward</th><th>Net Stock</th><th>Status</th>
-        </tr></thead>
+        <thead><tr><th>#</th><th>Master SKU</th><th>Σ Inward</th><th>Σ Outward</th><th>Net Stock</th><th>Status</th></tr></thead>
         <tbody id="tBody"></tbody>
       </table>
     </div>
@@ -252,28 +240,25 @@ tr:hover td{background:rgba(247,147,26,.025)}
       <span class="pg-info" id="pgInfo">1 / 1</span>
       <button id="nextBtn" onclick="changePage(1)">Next →</button>
       <select class="fsel" id="pgSize" onchange="changePageSize()" style="padding:5px 10px">
-        <option value="50">50 / page</option>
-        <option value="100">100 / page</option>
-        <option value="200">200 / page</option>
-        <option value="9999">All</option>
+        <option value="50">50 / page</option><option value="100">100 / page</option>
+        <option value="200">200 / page</option><option value="9999">All</option>
       </select>
     </div>
   </div>
 </div>
-
 </div>
 
-<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
 <script>
 /* ══════════════════════════════════════════════
-   PERMANENT CONFIG — opusamazon GitHub Pages
-   URL: https://opusamazon.github.io/stocksync/
+   PERMANENT CONFIG
+   GitHub Pages: https://opusamazon.github.io/stocksync/
+   Azure App:    StockSync (opus.amazon@gmail.com)
 ══════════════════════════════════════════════ */
 const CLIENT_ID    = 'b4e59877-96a2-44a3-a8f8-d3cfaaceb7de';
 const REDIRECT_URI = 'https://opusamazon.github.io/stocksync/';
 
 const DEFAULTS = {
-  odPath:      '/StockRegister.xlsx',  // ← update to your actual OneDrive file path
+  odPath:      '/StockRegister.xlsx',
   odSheet:     'Sheet1',
   placeFilter: 'Self Surat',
   colSku:      'Master SKU',
@@ -286,16 +271,7 @@ const DEFAULTS = {
 
 const SCOPES = ['Files.ReadWrite', 'User.Read'];
 
-/* ── MSAL init ── */
-const msalApp = new msal.PublicClientApplication({
-  auth: {
-    clientId:    CLIENT_ID,
-    authority:   'https://login.microsoftonline.com/consumers',
-    redirectUri: REDIRECT_URI,
-  },
-  cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: true },
-});
-
+let msalInstance = null;
 let msalReady    = false;
 let token        = null;
 let stockData    = [];
@@ -303,27 +279,61 @@ let filteredData = [];
 let currentPage  = 1;
 let pageSize     = 50;
 
-/* ── Boot: init MSAL then check existing session ── */
-msalApp.initialize().then(async () => {
-  msalReady = true;
+/* ── Boot: wait for DOM + MSAL ── */
+document.addEventListener('DOMContentLoaded', async () => {
+  const statusEl = document.getElementById('initStatus');
 
-  // Handle redirect response first (in case of redirect flow fallback)
-  try { await msalApp.handleRedirectPromise(); } catch(_) {}
-
-  // Check existing signed-in account
-  const accounts = msalApp.getAllAccounts();
-  if (accounts.length > 0) {
-    try {
-      const r = await msalApp.acquireTokenSilent({ scopes: SCOPES, account: accounts[0] });
-      token = r.accessToken;
-      onSignedIn(accounts[0]);
-    } catch(_) {} // show login screen
+  // Wait for msal to be available (max 5 seconds)
+  let tries = 0;
+  while (typeof msal === 'undefined' && tries < 50) {
+    await new Promise(r => setTimeout(r, 100));
+    tries++;
   }
-}).catch(e => console.error('MSAL init error:', e));
+
+  if (typeof msal === 'undefined') {
+    statusEl.style.color = 'var(--red)';
+    statusEl.textContent = '❌ MSAL library failed to load. Please refresh.';
+    return;
+  }
+
+  try {
+    statusEl.textContent = 'Loading...';
+    msalInstance = new msal.PublicClientApplication({
+      auth: {
+        clientId:    CLIENT_ID,
+        authority:   'https://login.microsoftonline.com/consumers',
+        redirectUri: REDIRECT_URI,
+      },
+      cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: true },
+    });
+
+    await msalInstance.initialize();
+    await msalInstance.handleRedirectPromise();
+
+    msalReady = true;
+    statusEl.textContent = '✅ Ready — click to sign in';
+    statusEl.style.color = 'var(--green)';
+    document.getElementById('loginBtn').disabled = false;
+
+    // Auto-login if session exists
+    const accounts = msalInstance.getAllAccounts();
+    if (accounts.length > 0) {
+      try {
+        const r = await msalInstance.acquireTokenSilent({ scopes: SCOPES, account: accounts[0] });
+        token = r.accessToken;
+        onSignedIn(accounts[0]);
+      } catch(_) {}
+    }
+  } catch(e) {
+    statusEl.style.color = 'var(--red)';
+    statusEl.textContent = '❌ Init error: ' + e.message;
+    console.error('MSAL init error:', e);
+  }
+});
 
 /* ══ AUTH ══ */
 async function signIn() {
-  if (!msalReady) {
+  if (!msalReady || !msalInstance) {
     showErr('loginErr', '⏳ Still initializing — please wait a moment and try again.');
     return;
   }
@@ -332,23 +342,24 @@ async function signIn() {
   btn.textContent = 'Opening Microsoft login...';
   hide('loginErr');
   try {
-    const result = await msalApp.loginPopup({ scopes: SCOPES });
+    const result = await msalInstance.loginPopup({ scopes: SCOPES });
     token = result.accessToken;
     onSignedIn(result.account);
   } catch(e) {
-    showErr('loginErr', 'Login failed: ' + (e.errorMessage || e.message || String(e)));
+    const msg = e.errorMessage || e.message || String(e);
+    showErr('loginErr', '❌ Login failed:\n' + msg);
     resetLoginBtn();
   }
 }
 
 async function getToken() {
-  const accounts = msalApp.getAllAccounts();
+  const accounts = msalInstance.getAllAccounts();
   if (!accounts.length) throw new Error('Not signed in.');
   try {
-    const r = await msalApp.acquireTokenSilent({ scopes: SCOPES, account: accounts[0] });
+    const r = await msalInstance.acquireTokenSilent({ scopes: SCOPES, account: accounts[0] });
     return r.accessToken;
   } catch(_) {
-    const r = await msalApp.acquireTokenPopup({ scopes: SCOPES });
+    const r = await msalInstance.acquireTokenPopup({ scopes: SCOPES });
     return r.accessToken;
   }
 }
@@ -363,7 +374,7 @@ function onSignedIn(account) {
 }
 
 function signOut() {
-  msalApp.logoutPopup().catch(() => {});
+  msalInstance.logoutPopup().catch(()=>{});
   token = null; stockData = [];
   document.getElementById('liveDot').className = 'dot';
   document.getElementById('liveLabel').textContent = 'Not signed in';
@@ -374,7 +385,7 @@ function signOut() {
 
 function resetLoginBtn() {
   const btn = document.getElementById('loginBtn');
-  btn.disabled = false;
+  btn.disabled = !msalReady;
   btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 21 21" fill="none">
     <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
     <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
@@ -419,88 +430,68 @@ async function doFetch() {
   show('fetchProg'); hide('fetchErr');
   txt.style.color = 'var(--muted)';
   try {
-    setProg(txt, pb, 10, '🔐 Getting access token...');
+    setProg(txt,pb,10,'🔐 Getting access token...');
     token = await getToken();
-
-    setProg(txt, pb, 30, '📂 Locating file on OneDrive...');
+    setProg(txt,pb,30,'📂 Locating file on OneDrive...');
     const fileId = await getFileId(cfg.odPath);
-
-    setProg(txt, pb, 58, `📄 Reading sheet "${cfg.odSheet}"...`);
+    setProg(txt,pb,58,`📄 Reading sheet "${cfg.odSheet}"...`);
     const rows = await getRows(fileId, cfg.odSheet);
-
-    setProg(txt, pb, 82, `🔄 Filtering "${cfg.placeFilter}" & summing stock...`);
+    setProg(txt,pb,82,`🔄 Filtering "${cfg.placeFilter}"...`);
     stockData = processStock(rows, cfg);
-
-    setProg(txt, pb, 100, `✅ ${stockData.length} SKUs loaded.`);
-    set('lastFetch', 'Updated ' + new Date().toLocaleTimeString('en-IN'));
-    renderStats(); currentPage = 1; renderTable();
+    setProg(txt,pb,100,`✅ ${stockData.length} SKUs loaded.`);
+    set('lastFetch','Updated '+new Date().toLocaleTimeString('en-IN'));
+    renderStats(); currentPage=1; renderTable();
     show('secReport'); hide('secConfig');
   } catch(e) {
-    txt.style.color = 'var(--red)';
-    txt.textContent = '❌ ' + e.message;
-    showErr('fetchErr',
-      e.message + '\n\n' +
-      'Common fixes:\n' +
-      '• File path must start with /  e.g. /Documents/Stock.xlsx\n' +
-      '• Sheet name is case-sensitive\n' +
-      '• Make sure the file exists in your OneDrive\n' +
-      '• Click Sign Out → Sign In again if token expired'
-    );
+    txt.style.color='var(--red)'; txt.textContent='❌ '+e.message;
+    showErr('fetchErr', e.message+'\n\nCommon fixes:\n• File path must start with /\n• Sheet name is case-sensitive\n• Make sure file exists in OneDrive\n• Try Sign Out → Sign In again');
   }
-  document.getElementById('fetchBtn').disabled = false;
+  document.getElementById('fetchBtn').disabled=false;
 }
 
-async function doRefetch() {
-  show('secConfig'); hide('secReport');
-  show('fetchProg'); hide('fetchErr');
-  await doFetch();
-}
+async function doRefetch() { show('secConfig'); hide('secReport'); show('fetchProg'); hide('fetchErr'); await doFetch(); }
 function showCfg() { show('secConfig'); hide('secReport'); }
 
-/* ── Graph API ── */
 async function graphGet(url) {
-  const r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+  const r = await fetch(url, { headers:{ Authorization:'Bearer '+token } });
   const d = await r.json();
   if (d.error) throw new Error(d.error.message || JSON.stringify(d.error));
   return d;
 }
 
 async function getFileId(path) {
-  const p = path.startsWith('/') ? path : '/' + path;
+  const p = path.startsWith('/')?path:'/'+path;
   const d = await graphGet(`https://graph.microsoft.com/v1.0/me/drive/root:${encodeURIComponent(p)}`);
-  if (!d.id) throw new Error('File not found: "' + path + '"');
+  if (!d.id) throw new Error('File not found: "'+path+'"');
   return d.id;
 }
 
 async function getRows(fileId, sheet) {
-  const d = await graphGet(
-    `https://graph.microsoft.com/v1.0/me/drive/items/${fileId}/workbook/worksheets/${encodeURIComponent(sheet)}/usedRange`
-  );
-  if (!d.values) throw new Error('Cannot read sheet: "' + sheet + '"');
+  const d = await graphGet(`https://graph.microsoft.com/v1.0/me/drive/items/${fileId}/workbook/worksheets/${encodeURIComponent(sheet)}/usedRange`);
+  if (!d.values) throw new Error('Cannot read sheet: "'+sheet+'"');
   return d.values;
 }
 
-/* ── Core Logic ── */
 function processStock(rows, cfg) {
-  if (!rows || rows.length < 2) throw new Error('Sheet has no data rows.');
-  const hdr = rows[0].map(h => String(h||'').trim());
-  const fi  = n => hdr.findIndex(h => h.toLowerCase() === n.toLowerCase());
-  const iS=fi(cfg.colSku), iQ=fi(cfg.colQty), iT=fi(cfg.colType), iP=fi(cfg.colPlace);
-  if (iS<0) throw new Error(`Column "${cfg.colSku}" not found.\nHeaders found: ${hdr.join(', ')}`);
-  if (iQ<0) throw new Error(`Column "${cfg.colQty}" not found.`);
-  if (iT<0) throw new Error(`Column "${cfg.colType}" not found.`);
-  if (iP<0) throw new Error(`Column "${cfg.colPlace}" not found.`);
-  const map = {};
-  for (let i=1; i<rows.length; i++) {
+  if (!rows||rows.length<2) throw new Error('Sheet has no data rows.');
+  const hdr=rows[0].map(h=>String(h||'').trim());
+  const fi=n=>hdr.findIndex(h=>h.toLowerCase()===n.toLowerCase());
+  const iS=fi(cfg.colSku),iQ=fi(cfg.colQty),iT=fi(cfg.colType),iP=fi(cfg.colPlace);
+  if(iS<0) throw new Error(`Column "${cfg.colSku}" not found.\nHeaders: ${hdr.join(', ')}`);
+  if(iQ<0) throw new Error(`Column "${cfg.colQty}" not found.`);
+  if(iT<0) throw new Error(`Column "${cfg.colType}" not found.`);
+  if(iP<0) throw new Error(`Column "${cfg.colPlace}" not found.`);
+  const map={};
+  for(let i=1;i<rows.length;i++){
     const row=rows[i];
-    if (String(row[iP]||'').trim().toLowerCase() !== cfg.placeFilter.toLowerCase()) continue;
+    if(String(row[iP]||'').trim().toLowerCase()!==cfg.placeFilter.toLowerCase()) continue;
     const sku=String(row[iS]||'').trim();
     const qty=parseFloat(row[iQ])||0;
     const typ=String(row[iT]||'').trim().toLowerCase();
-    if (!sku) continue;
-    if (!map[sku]) map[sku]={inward:0,outward:0};
-    if (typ===cfg.kwIn.toLowerCase())  map[sku].inward  += qty;
-    if (typ===cfg.kwOut.toLowerCase()) map[sku].outward += qty;
+    if(!sku) continue;
+    if(!map[sku]) map[sku]={inward:0,outward:0};
+    if(typ===cfg.kwIn.toLowerCase())  map[sku].inward  +=qty;
+    if(typ===cfg.kwOut.toLowerCase()) map[sku].outward +=qty;
   }
   return Object.entries(map)
     .map(([sku,d])=>({sku,inward:d.inward,outward:d.outward,net:Math.max(0,d.inward-d.outward)}))
@@ -508,7 +499,7 @@ function processStock(rows, cfg) {
 }
 
 /* ══ RENDER ══ */
-function renderStats() {
+function renderStats(){
   const inS=stockData.filter(x=>x.net>0).length;
   const zero=stockData.filter(x=>x.net<=0).length;
   const tot=stockData.reduce((s,x)=>s+x.net,0);
@@ -517,40 +508,33 @@ function renderStats() {
   set('skuCnt',stockData.length+' SKUs');
 }
 
-function renderTable() {
+function renderTable(){
   const q=document.getElementById('srch').value.toLowerCase().trim();
   const fil=document.getElementById('filterSel').value;
   const srt=document.getElementById('sortSel').value;
   filteredData=stockData.filter(x=>{
     if(q&&!x.sku.toLowerCase().includes(q)) return false;
-    if(fil==='in'   &&x.net<=0)             return false;
-    if(fil==='zero' &&x.net>0)              return false;
-    if(fil==='low'  &&(x.net<=0||x.net>10)) return false;
+    if(fil==='in'&&x.net<=0) return false;
+    if(fil==='zero'&&x.net>0) return false;
+    if(fil==='low'&&(x.net<=0||x.net>10)) return false;
     return true;
   }).sort((a,b)=>{
     switch(srt){
-      case 'net-asc':  return a.net-b.net;
-      case 'sku-asc':  return a.sku.localeCompare(b.sku);
+      case 'net-asc': return a.net-b.net;
+      case 'sku-asc': return a.sku.localeCompare(b.sku);
       case 'sku-desc': return b.sku.localeCompare(a.sku);
-      case 'in-desc':  return b.inward-a.inward;
+      case 'in-desc': return b.inward-a.inward;
       case 'out-desc': return b.outward-a.outward;
-      default:         return b.net-a.net;
+      default: return b.net-a.net;
     }
   });
-  const tot=filteredData.length, pages=Math.max(1,Math.ceil(tot/pageSize));
+  const tot=filteredData.length,pages=Math.max(1,Math.ceil(tot/pageSize));
   if(currentPage>pages) currentPage=pages;
-  const s=(currentPage-1)*pageSize, e=Math.min(s+pageSize,tot);
+  const s=(currentPage-1)*pageSize,e=Math.min(s+pageSize,tot);
   document.getElementById('tBody').innerHTML=filteredData.slice(s,e).map((x,i)=>{
     const cls=x.net===0?'r':x.net<=10?'y':'g';
     const bdg=x.net===0?'<span class="badge e">✗ Zero</span>':x.net<=10?'<span class="badge w">⚠ Low</span>':'<span class="badge s">✓ In Stock</span>';
-    return `<tr>
-      <td style="color:var(--muted);font-family:var(--mono);font-size:10px">${s+i+1}</td>
-      <td class="sku">${x.sku}</td>
-      <td class="num g">${x.inward.toLocaleString('en-IN')}</td>
-      <td class="num r">${x.outward.toLocaleString('en-IN')}</td>
-      <td class="num ${cls}">${x.net.toLocaleString('en-IN')}</td>
-      <td>${bdg}</td>
-    </tr>`;
+    return `<tr><td style="color:var(--muted);font-family:var(--mono);font-size:10px">${s+i+1}</td><td class="sku">${x.sku}</td><td class="num g">${x.inward.toLocaleString('en-IN')}</td><td class="num r">${x.outward.toLocaleString('en-IN')}</td><td class="num ${cls}">${x.net.toLocaleString('en-IN')}</td><td>${bdg}</td></tr>`;
   }).join('');
   set('rowInfo',`Showing ${s+1}–${e} of ${tot} SKUs`);
   set('pgInfo',`${currentPage} / ${pages}`);
@@ -558,27 +542,24 @@ function renderTable() {
   document.getElementById('nextBtn').disabled=currentPage>=pages;
 }
 
-function changePage(d)    { currentPage+=d; renderTable(); }
-function changePageSize() { pageSize=parseInt(document.getElementById('pgSize').value); currentPage=1; renderTable(); }
+function changePage(d){currentPage+=d;renderTable();}
+function changePageSize(){pageSize=parseInt(document.getElementById('pgSize').value);currentPage=1;renderTable();}
 
-function exportCSV() {
+function exportCSV(){
   const data=filteredData.length?filteredData:stockData;
-  const csv=[['Master SKU','Inward','Outward','Net Stock','Status'],
-    ...data.map(x=>[x.sku,x.inward,x.outward,x.net,x.net===0?'Zero':x.net<=10?'Low':'In Stock'])
-  ].map(r=>r.join(',')).join('\n');
+  const csv=[['Master SKU','Inward','Outward','Net Stock','Status'],...data.map(x=>[x.sku,x.inward,x.outward,x.net,x.net===0?'Zero':x.net<=10?'Low':'In Stock'])].map(r=>r.join(',')).join('\n');
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
   a.download=`stock_surat_${new Date().toISOString().slice(0,10)}.csv`;
   a.click();
 }
 
-/* ══ UTILS ══ */
-function v(id)    { return document.getElementById(id).value.trim(); }
-function set(id,t){ document.getElementById(id).textContent=t; }
-function show(id) { document.getElementById(id).classList.remove('hidden'); }
-function hide(id) { document.getElementById(id).classList.add('hidden'); }
-function setProg(t,p,pct,msg){ t.textContent=msg; p.style.width=pct+'%'; }
-function showErr(id,msg){ const e=document.getElementById(id); e.classList.remove('hidden'); e.textContent=msg; }
+function v(id){return document.getElementById(id).value.trim();}
+function set(id,t){document.getElementById(id).textContent=t;}
+function show(id){document.getElementById(id).classList.remove('hidden');}
+function hide(id){document.getElementById(id).classList.add('hidden');}
+function setProg(t,p,pct,msg){t.textContent=msg;p.style.width=pct+'%';}
+function showErr(id,msg){const e=document.getElementById(id);e.classList.remove('hidden');e.textContent=msg;}
 </script>
 </body>
 </html>
