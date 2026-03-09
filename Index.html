@@ -33,7 +33,7 @@ header{display:flex;align-items:center;justify-content:space-between;margin-bott
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
 
 .login-screen{display:flex;align-items:center;justify-content:center;min-height:65vh}
-.login-box{background:var(--s1);border:1px solid var(--border);border-radius:20px;padding:48px 52px;max-width:440px;width:100%;text-align:center}
+.login-box{background:var(--s1);border:1px solid var(--border);border-radius:20px;padding:48px 52px;max-width:460px;width:100%;text-align:center}
 .login-box h2{font-family:var(--mono);font-size:20px;margin-bottom:10px}
 .login-box p{color:var(--muted);font-size:13px;line-height:1.7;margin-bottom:28px}
 .ms-btn{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;padding:14px 24px;background:#fff;color:#1a1a1a;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s;font-family:var(--sans)}
@@ -169,8 +169,8 @@ tr:hover td{background:rgba(247,147,26,.025)}
       </span>
     </div>
     <div class="info-box">
-      ✅ Signed in! Set the <strong style="color:var(--text)">OneDrive File Path</strong> to your stock Excel file, then click Fetch.<br>
-      <strong style="color:var(--text)">Example paths:</strong> /StockRegister.xlsx &nbsp;|&nbsp; /Documents/Stock.xlsx &nbsp;|&nbsp; /MyFiles/StockData.xlsx
+      ✅ Signed in! Set the <strong style="color:var(--text)">OneDrive File Path</strong> to your stock Excel file then click Fetch.<br>
+      <strong style="color:var(--text)">Example:</strong> /Documents/Stock.xlsx &nbsp;|&nbsp; /StockRegister.xlsx &nbsp;|&nbsp; /MyFiles/StockData.xlsx
     </div>
     <div class="g2" style="margin-bottom:12px">
       <div class="fg">
@@ -263,16 +263,17 @@ tr:hover td{background:rgba(247,147,26,.025)}
 
 </div>
 
-<!-- MSAL loaded BEFORE any script runs -->
 <script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
 <script>
-/* ══════════════════════════════════════
-   HARDCODED — StockSync Azure App
-══════════════════════════════════════ */
-const CLIENT_ID = 'b4e59877-96a2-44a3-a8f8-d3cfaaceb7de';
+/* ══════════════════════════════════════════════
+   PERMANENT CONFIG — opusamazon GitHub Pages
+   URL: https://opusamazon.github.io/stocksync/
+══════════════════════════════════════════════ */
+const CLIENT_ID    = 'b4e59877-96a2-44a3-a8f8-d3cfaaceb7de';
+const REDIRECT_URI = 'https://opusamazon.github.io/stocksync/';
 
 const DEFAULTS = {
-  odPath:      '/StockRegister.xlsx',  // ← update to your file path
+  odPath:      '/StockRegister.xlsx',  // ← update to your actual OneDrive file path
   odSheet:     'Sheet1',
   placeFilter: 'Self Surat',
   colSku:      'Master SKU',
@@ -285,45 +286,45 @@ const DEFAULTS = {
 
 const SCOPES = ['Files.ReadWrite', 'User.Read'];
 
-/* ══════════════════════════════════════
-   MSAL — initialised immediately at script load
-══════════════════════════════════════ */
-const msalConfig = {
+/* ── MSAL init ── */
+const msalApp = new msal.PublicClientApplication({
   auth: {
     clientId:    CLIENT_ID,
     authority:   'https://login.microsoftonline.com/consumers',
-    redirectUri: 'https://login.microsoftonline.com/common/oauth2/nativeclient',
+    redirectUri: REDIRECT_URI,
   },
   cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: true },
-};
+});
 
-const msalApp = new msal.PublicClientApplication(msalConfig);
-let msalReady = false;
-
-// Initialize MSAL async — must be done before loginPopup
-msalApp.initialize().then(() => {
-  msalReady = true;
-  // Check if already signed in
-  const accounts = msalApp.getAllAccounts();
-  if (accounts.length > 0) {
-    msalApp.acquireTokenSilent({ scopes: SCOPES, account: accounts[0] })
-      .then(r => { token = r.accessToken; onSignedIn(accounts[0]); })
-      .catch(() => {}); // silent fail = show login
-  }
-}).catch(e => console.error('MSAL init failed:', e));
-
+let msalReady    = false;
 let token        = null;
 let stockData    = [];
 let filteredData = [];
 let currentPage  = 1;
 let pageSize     = 50;
 
-/* ══════════════════════════════════════
-   AUTH
-══════════════════════════════════════ */
+/* ── Boot: init MSAL then check existing session ── */
+msalApp.initialize().then(async () => {
+  msalReady = true;
+
+  // Handle redirect response first (in case of redirect flow fallback)
+  try { await msalApp.handleRedirectPromise(); } catch(_) {}
+
+  // Check existing signed-in account
+  const accounts = msalApp.getAllAccounts();
+  if (accounts.length > 0) {
+    try {
+      const r = await msalApp.acquireTokenSilent({ scopes: SCOPES, account: accounts[0] });
+      token = r.accessToken;
+      onSignedIn(accounts[0]);
+    } catch(_) {} // show login screen
+  }
+}).catch(e => console.error('MSAL init error:', e));
+
+/* ══ AUTH ══ */
 async function signIn() {
   if (!msalReady) {
-    showErr('loginErr', '⏳ Still initializing — please wait 2 seconds and try again.');
+    showErr('loginErr', '⏳ Still initializing — please wait a moment and try again.');
     return;
   }
   const btn = document.getElementById('loginBtn');
@@ -335,8 +336,7 @@ async function signIn() {
     token = result.accessToken;
     onSignedIn(result.account);
   } catch(e) {
-    const msg = e.errorMessage || e.message || String(e);
-    showErr('loginErr', 'Login failed: ' + msg);
+    showErr('loginErr', 'Login failed: ' + (e.errorMessage || e.message || String(e)));
     resetLoginBtn();
   }
 }
@@ -383,9 +383,7 @@ function resetLoginBtn() {
   </svg>Sign in with Microsoft`;
 }
 
-/* ══════════════════════════════════════
-   CONFIG
-══════════════════════════════════════ */
+/* ══ CONFIG ══ */
 function populateCfg() {
   document.getElementById('cfgPath').value   = DEFAULTS.odPath;
   document.getElementById('cfgSheet').value  = DEFAULTS.odSheet;
@@ -412,9 +410,7 @@ function getCfg() {
   };
 }
 
-/* ══════════════════════════════════════
-   FETCH
-══════════════════════════════════════ */
+/* ══ FETCH ══ */
 async function doFetch() {
   const cfg = getCfg();
   const txt = document.getElementById('fetchTxt');
@@ -435,7 +431,7 @@ async function doFetch() {
     setProg(txt, pb, 82, `🔄 Filtering "${cfg.placeFilter}" & summing stock...`);
     stockData = processStock(rows, cfg);
 
-    setProg(txt, pb, 100, `✅ ${stockData.length} SKUs loaded from "${cfg.placeFilter}".`);
+    setProg(txt, pb, 100, `✅ ${stockData.length} SKUs loaded.`);
     set('lastFetch', 'Updated ' + new Date().toLocaleTimeString('en-IN'));
     renderStats(); currentPage = 1; renderTable();
     show('secReport'); hide('secConfig');
@@ -448,16 +444,20 @@ async function doFetch() {
       '• File path must start with /  e.g. /Documents/Stock.xlsx\n' +
       '• Sheet name is case-sensitive\n' +
       '• Make sure the file exists in your OneDrive\n' +
-      '• Try Sign Out → Sign In again if token expired'
+      '• Click Sign Out → Sign In again if token expired'
     );
   }
   document.getElementById('fetchBtn').disabled = false;
 }
 
-async function doRefetch() { show('secConfig'); hide('secReport'); show('fetchProg'); hide('fetchErr'); await doFetch(); }
+async function doRefetch() {
+  show('secConfig'); hide('secReport');
+  show('fetchProg'); hide('fetchErr');
+  await doFetch();
+}
 function showCfg() { show('secConfig'); hide('secReport'); }
 
-/* ── Graph API helpers ── */
+/* ── Graph API ── */
 async function graphGet(url) {
   const r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
   const d = await r.json();
@@ -480,13 +480,13 @@ async function getRows(fileId, sheet) {
   return d.values;
 }
 
-/* ── Core logic ── */
+/* ── Core Logic ── */
 function processStock(rows, cfg) {
   if (!rows || rows.length < 2) throw new Error('Sheet has no data rows.');
   const hdr = rows[0].map(h => String(h||'').trim());
   const fi  = n => hdr.findIndex(h => h.toLowerCase() === n.toLowerCase());
   const iS=fi(cfg.colSku), iQ=fi(cfg.colQty), iT=fi(cfg.colType), iP=fi(cfg.colPlace);
-  if (iS<0) throw new Error(`Column "${cfg.colSku}" not found.\nHeaders: ${hdr.join(', ')}`);
+  if (iS<0) throw new Error(`Column "${cfg.colSku}" not found.\nHeaders found: ${hdr.join(', ')}`);
   if (iQ<0) throw new Error(`Column "${cfg.colQty}" not found.`);
   if (iT<0) throw new Error(`Column "${cfg.colType}" not found.`);
   if (iP<0) throw new Error(`Column "${cfg.colPlace}" not found.`);
@@ -507,9 +507,7 @@ function processStock(rows, cfg) {
     .sort((a,b)=>b.net-a.net);
 }
 
-/* ══════════════════════════════════════
-   RENDER
-══════════════════════════════════════ */
+/* ══ RENDER ══ */
 function renderStats() {
   const inS=stockData.filter(x=>x.net>0).length;
   const zero=stockData.filter(x=>x.net<=0).length;
@@ -539,9 +537,9 @@ function renderTable() {
       default:         return b.net-a.net;
     }
   });
-  const tot=filteredData.length,pages=Math.max(1,Math.ceil(tot/pageSize));
+  const tot=filteredData.length, pages=Math.max(1,Math.ceil(tot/pageSize));
   if(currentPage>pages) currentPage=pages;
-  const s=(currentPage-1)*pageSize,e=Math.min(s+pageSize,tot);
+  const s=(currentPage-1)*pageSize, e=Math.min(s+pageSize,tot);
   document.getElementById('tBody').innerHTML=filteredData.slice(s,e).map((x,i)=>{
     const cls=x.net===0?'r':x.net<=10?'y':'g';
     const bdg=x.net===0?'<span class="badge e">✗ Zero</span>':x.net<=10?'<span class="badge w">⚠ Low</span>':'<span class="badge s">✓ In Stock</span>';
@@ -574,6 +572,7 @@ function exportCSV() {
   a.click();
 }
 
+/* ══ UTILS ══ */
 function v(id)    { return document.getElementById(id).value.trim(); }
 function set(id,t){ document.getElementById(id).textContent=t; }
 function show(id) { document.getElementById(id).classList.remove('hidden'); }
