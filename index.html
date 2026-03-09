@@ -144,7 +144,7 @@ tr:hover td{background:rgba(247,147,26,.025)}
     </div>
     <div class="info-box">
       ✅ Signed in! File downloads directly from OneDrive and is parsed locally — <strong style="color:var(--text)">much faster</strong> than API row-by-row calls. Even 700k rows works fine.<br>
-      Filters applied: <strong style="color:var(--accent)">Place = Self Surat</strong> + <strong style="color:var(--green)">Product Condition = Good</strong> only.
+      Filter: <strong style="color:var(--accent)">Place = Self Surat</strong> only. All conditions included (bad goods already counted as Outward).
     </div>
     <div class="warn-box">
       ⚠️ Large file (~42MB) — download may take 15–30 seconds depending on your internet speed. Please wait after clicking Fetch.
@@ -160,18 +160,10 @@ tr:hover td{background:rgba(247,147,26,.025)}
       <div class="fg"><label>Place Column</label><input id="cfgPlace"/></div>
       <div class="fg"><label>Inward Value</label><input id="cfgIn"/></div>
       <div class="fg"><label>Outward Value</label><input id="cfgOut"/></div>
-      <div class="fg"><label>Condition Column</label><input id="cfgCond"/></div>
-      <div class="fg"><label>Good Condition Value</label><input id="cfgKwCond"/></div>
     </div>
-    <div class="g2" style="max-width:620px;margin-bottom:18px">
-      <div class="fg">
-        <label>Warehouse Filter</label>
-        <input id="cfgFilter" style="border-color:var(--accent)"/>
-      </div>
-      <div class="fg">
-        <label>Condition Filter <span style="color:var(--green);font-size:9px">✓ ACTIVE</span></label>
-        <input id="cfgCondFilter" style="border-color:var(--green)" placeholder="e.g. Good"/>
-      </div>
+    <div class="fg" style="max-width:300px;margin-bottom:18px">
+      <label>Warehouse Filter</label>
+      <input id="cfgFilter" style="border-color:var(--accent)"/>
     </div>
     <button class="btn bp" id="fetchBtn" onclick="doFetch()">🔄 Fetch Stock from OneDrive</button>
     <div id="fetchProg" class="hidden" style="margin-top:16px">
@@ -251,8 +243,6 @@ const DEFAULTS = {
   colQty:'Quantity',
   colType:'Stock Type',
   colPlace:'Place',
-  colCond:'Product Condition',
-  kwCond:'Good',
   kwIn:'Inward',
   kwOut:'Outward',
 };
@@ -323,15 +313,12 @@ function populateCfg(){
   document.getElementById('cfgQty').value    = DEFAULTS.colQty;
   document.getElementById('cfgType').value   = DEFAULTS.colType;
   document.getElementById('cfgPlace').value     = DEFAULTS.colPlace;
-  document.getElementById('cfgCond').value      = DEFAULTS.colCond;
-  document.getElementById('cfgKwCond').value    = DEFAULTS.kwCond;
   document.getElementById('cfgIn').value        = DEFAULTS.kwIn;
   document.getElementById('cfgOut').value       = DEFAULTS.kwOut;
   document.getElementById('cfgFilter').value    = DEFAULTS.placeFilter;
-  document.getElementById('cfgCondFilter').value= DEFAULTS.kwCond;
 }
 function getCfg(){
-  return{odPath:v('cfgPath')||DEFAULTS.odPath,odSheet:v('cfgSheet')||DEFAULTS.odSheet,placeFilter:v('cfgFilter')||DEFAULTS.placeFilter,colSku:v('cfgSku')||DEFAULTS.colSku,colQty:v('cfgQty')||DEFAULTS.colQty,colType:v('cfgType')||DEFAULTS.colType,colPlace:v('cfgPlace')||DEFAULTS.colPlace,colCond:v('cfgCond')||DEFAULTS.colCond,kwCond:v('cfgCondFilter')||DEFAULTS.kwCond,kwIn:v('cfgIn')||DEFAULTS.kwIn,kwOut:v('cfgOut')||DEFAULTS.kwOut};
+  return{odPath:v('cfgPath')||DEFAULTS.odPath,odSheet:v('cfgSheet')||DEFAULTS.odSheet,placeFilter:v('cfgFilter')||DEFAULTS.placeFilter,colSku:v('cfgSku')||DEFAULTS.colSku,colQty:v('cfgQty')||DEFAULTS.colQty,colType:v('cfgType')||DEFAULTS.colType,colPlace:v('cfgPlace')||DEFAULTS.colPlace,kwIn:v('cfgIn')||DEFAULTS.kwIn,kwOut:v('cfgOut')||DEFAULTS.kwOut};
 }
 
 /* ═══════════════════════════════════════════════════
@@ -403,26 +390,21 @@ async function doFetch(){
     const hdr=rows[0].map(h=>String(h||'').trim());
     const fi=n=>hdr.findIndex(h=>h.toLowerCase()===n.toLowerCase());
     const iS=fi(cfg.colSku),iQ=fi(cfg.colQty),iT=fi(cfg.colType),iP=fi(cfg.colPlace);
-    const iC=fi(cfg.colCond); // Product Condition column
     if(iS<0) throw new Error(`Column "${cfg.colSku}" not found.\nHeaders found: ${hdr.filter(Boolean).join(', ')}`);
     if(iQ<0) throw new Error(`Column "${cfg.colQty}" not found.`);
     if(iT<0) throw new Error(`Column "${cfg.colType}" not found.`);
     if(iP<0) throw new Error(`Column "${cfg.colPlace}" not found.`);
-    if(iC<0) throw new Error(`Column "${cfg.colCond}" not found.`);
 
-    // Aggregate stock
+    // Aggregate stock — all conditions included (bad goods already appear as Outward)
     const map={};
     const filterLower=cfg.placeFilter.toLowerCase();
-    const condLower=cfg.kwCond.toLowerCase();   // ← "good"
     const inLower=cfg.kwIn.toLowerCase();
     const outLower=cfg.kwOut.toLowerCase();
 
     for(let i=1;i<rows.length;i++){
       const row=rows[i];
-      // Must be Self Surat warehouse
+      // Must be Self Surat warehouse only
       if(String(row[iP]||'').trim().toLowerCase()!==filterLower) continue;
-      // Must be Good condition only
-      if(String(row[iC]||'').trim().toLowerCase()!==condLower) continue;
       const sku=String(row[iS]||'').trim();
       if(!sku) continue;
       const qty=parseFloat(row[iQ])||0;
@@ -436,9 +418,8 @@ async function doFetch(){
       .map(([sku,d])=>({sku,inward:d.inward,outward:d.outward,net:Math.max(0,d.inward-d.outward)}))
       .sort((a,b)=>b.net-a.net);
 
-    setProg(txt,pb,100,`✅ Done! ${stockData.length} SKUs loaded (Good condition, Self Surat only).`);
-    sub.textContent=`Parsed ${sizeMB}MB — filters: Place="${cfg.placeFilter}" + Condition="${cfg.kwCond}"`;
-
+    setProg(txt,pb,100,`✅ Done! ${stockData.length} SKUs loaded (Self Surat, all conditions).`);
+    sub.textContent=`Parsed ${sizeMB}MB — filter: Place="${cfg.placeFilter}" | Σ Inward − Σ Outward per SKU`;
     set('lastFetch','Updated '+new Date().toLocaleTimeString('en-IN'));
     renderStats();currentPage=1;renderTable();
     show('secReport');hide('secConfig');
